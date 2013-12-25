@@ -210,10 +210,10 @@ detect memory usage-after-free errors and it only works for C programs.
 They all have similar performance overhead, around 
 25\% overhead for instrumentation on writes only.  
 Our approach is similar to these two recent works, but it is different as follows: 
-\stopgap{} can detect those overflows 
-caused by library functions, which are missed by them; \stopgap{} does not need the re-compilation 
+\DoubleTake{} can detect those overflows 
+caused by library functions, which are missed by them; \DoubleTake{} does not need the re-compilation 
 and can report the whole sequence of accesses on
-problematic memory addresses. Also, \stopgap{} can report all possible overflows at a time, not 
+problematic memory addresses. Also, \DoubleTake{} can report all possible overflows at a time, not 
 stopping at the first overflow. 
 
 \textbf{Un-addressable Memory}: \\
@@ -243,9 +243,9 @@ problems and can only correct certain cases of overflows.
 
 Besides that, Cruiser~\cite{overflow:Cruiser} spawns a concurrent thread to check the integrity of heap objects.
 Since Cruiser puts the overhead of checking overflows to this additional thread running on other CPUs,
-it imposes very low overhead (comparable to that of \stopgap{}) on the performance of applications, 
+it imposes very low overhead (comparable to that of \DoubleTake{}) on the performance of applications, 
 around 5\% percent. However, Cruiser can not pinpoint the source of overflows, which putting the 
 burden to find out exact cause of overflows to programmers. 
-\stopgap{} saves additional CPU while providing precise information to fix corresponding problems
+\DoubleTake{} saves additional CPU while providing precise information to fix corresponding problems
 in some similar performance overhead.   
 
