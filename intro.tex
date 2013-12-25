@@ -84,17 +84,17 @@ of multithreaded applications for fault tolerance purposes.
 %Building on \sheriff{} framework, \dthreads{} isolates memory accesses, commits threads' updates 
 %in a deterministic order and synchronizes threads deterministically.
 
-\item \stopgap{}:
-We propose \stopgap{} to detect \textbf{write-write} races effectively, precisely, and efficiently.
-\stopgap{} verifies all write accesses inside the same epoch, while 
+\item \DoubleTake{}:
+We propose \DoubleTake{} to detect \textbf{write-write} races effectively, precisely, and efficiently.
+\DoubleTake{} verifies all write accesses inside the same epoch, while 
 concurrent accesses from different threads inside the same epoch are considered
-to be races. In order to locate races precisely, \stopgap{} re-executes programs after installing 
+to be races. In order to locate races precisely, \DoubleTake{} re-executes programs after installing 
 watch points on problematic memory addresses. 
-Since \stopgap{} only checks memory errors at boundaries of synchronizations and system calls,
+Since \DoubleTake{} only checks memory errors at boundaries of synchronizations and system calls,
 instead of before every memory access like traditional approaches, 
-the overhead of \stopgap{} can be amortized over a long execution time. 
+the overhead of \DoubleTake{} can be amortized over a long execution time. 
 To replay the executions of  multithreaded programs, we
-are planning to built \stopgap{} on top of the \dthreads{} framework.
+are planning to built \DoubleTake{} on top of the \dthreads{} framework.
 % Most of existing tools to detect races are based on a pess 
 % to achieve the determinism target.
   
@@ -123,7 +123,7 @@ The rest of this proposal is organized as follows. Chapter 1 introduces
 difficulties to write multithreaded programs. 
 Chapter 2 provides an overview of previous work on these existing problems. 
 Chapter 3 and chapter 4 discuss our existing systems, \sheriff{} and \dthreads{}.
-Chapter 5 proposes the basic idea and challenges to design an efficient memory debugging system, \stopgap{}. 
+Chapter 5 proposes the basic idea and challenges to design an efficient memory debugging system, \DoubleTake{}. 
 
 %%
 %% Some sample text

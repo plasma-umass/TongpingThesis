@@ -1,0 +1,7 @@
+void * child (void * ptr) {
+  int tid = (int)ptr;
+  while(true) {
+    Array[tid]++;
+  }
+  return NULL;
+}
