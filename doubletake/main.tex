@@ -1,162 +1,266 @@
-% Experience from Grace, which are utilizing the rollback mechanism to avoid 
-% memory conflict.
-% During the development of \sheriff{}, we actually find out some race problems of program in
-% the commit phase. 
-% Now we are trying to bind all those together: utilize the rollback and watch point to find out
-% memory errors.
-% The idea is actually the same: only check memory errors in some points, intead of every access,
-% we can actually improve the performance of memory debugging system. 
-We propose \DoubleTake{} system to locate the memory errors of 
-multithreaded programs precisely and efficiently, such as write-write races and buffer overflows. 
+%DIF PREAMBLE EXTENSION ADDED BY LATEXDIFF
+%DIF UNDERLINE PREAMBLE %DIF PREAMBLE
+\RequirePackage[normalem]{ulem} %DIF PREAMBLE
+\RequirePackage{color}\definecolor{RED}{rgb}{1,0,0}\definecolor{BLUE}{rgb}{0,0,1} %DIF PREAMBLE
+\providecommand{\DIFadd}[1]{{\protect\color{blue}\uwave{#1}}} %DIF PREAMBLE
+\providecommand{\DIFdel}[1]{{\protect\color{red}\sout{#1}}}                      %DIF PREAMBLE
+%DIF SAFE PREAMBLE %DIF PREAMBLE
+\providecommand{\DIFaddbegin}{} %DIF PREAMBLE
+\providecommand{\DIFaddend}{} %DIF PREAMBLE
+\providecommand{\DIFdelbegin}{} %DIF PREAMBLE
+\providecommand{\DIFdelend}{} %DIF PREAMBLE
+%DIF FLOATSAFE PREAMBLE %DIF PREAMBLE
+\providecommand{\DIFaddFL}[1]{\DIFadd{#1}} %DIF PREAMBLE
+\providecommand{\DIFdelFL}[1]{\DIFdel{#1}} %DIF PREAMBLE
+\providecommand{\DIFaddbeginFL}{} %DIF PREAMBLE
+\providecommand{\DIFaddendFL}{} %DIF PREAMBLE
+\providecommand{\DIFdelbeginFL}{} %DIF PREAMBLE
+\providecommand{\DIFdelendFL}{} %DIF PREAMBLE
+%DIF END PREAMBLE EXTENSION ADDED BY LATEXDIFF
 
-\section{Detection of Write-Write Races}
+%\documentclass{sigplanconf}
+%\nocaptionrule
 
-% How to find out the write-write race conditions
-Since \Sheriff{} can determine actual 
-modifications of different threads by combining
-``per-thread-isolation'', ``per-thread-protection'' and ``twinning-and-diffing'' mechanism
-altogether, \DoubleTake{} leverages this framework to detect write-write races.
- 
-The basic idea of \DoubleTake{} to find out the write-write races is as follows: 
-whenever a thread finds those modifications before actual commits, 
-it snoops the shared mapping to check whether the shared mapping has a different value 
-with that of the twin page.
-%If the shared mapping has a different value with that of the twin
-%page, other threads must change this word simultaneously with current thread. 
+% \documentclass[twocolumn,9pt]{article}
+% \documentclass[twocolumn,10pt]{acm_proc_article-sp}
 
-Ideally, accessing a shared variable must be protected by a mutual exclusion lock, 
-so two threads can not enter into the same critical section simultaneously.
-It is impossible for a correctly synchronized program that two threads modify 
-the same word simultaneouly.  
-If a word is changed by multiple threads simultaneously, it can only be caused by a race.
-Because \DoubleTake{} preserves the same synchronization semantics of multithreaded programs, 
-two threads modifying the same word simultaneously must be caused by a write-write race.
-Because of that, \DoubleTake{}  never reports false 
-positives: those write-write races are actually races. 
+% \documentclass{acm_proc_article-sp}
+\documentclass[9pt]{sigplanconf}
 
-Since \DoubleTake{} only checks memory accesses and commits per-thread's modifications 
-at synchronization 
-boundaries and system calls, it is expected to greately amortize the overhead 
-through a long period of time. 
-%and to avoid the skews of executions by the logging mechanism:
-Different with traditional approaches, there is no need to record every memory access and its 
-corresponding timing information, which can also reduce the space overhead of detection tools. 
+\date{} % \vspace*{-0.2in}}
 
-%\textbf{AAAA}
-% Why \DoubleTake{} can find more races?
-In the meanwhile, \DoubleTake{} possibly detects more races since all updates in the 
-in the same epoch can be found out by examining the difference between the shared 
-mapping and the twin page.
-We do not need to detect a race when two accesses actually violate the happens-before 
-relationship any more.
+% Make sure to put back 
 
-However, simply knowing a race is not helpful for users to fix this problem. 
-In order to precisely locate the problem, \DoubleTake{} is planning to combine the program
-re-execution and watch point mechanism to find out the origins of the problem.
-The basic mechanism is showed in Figure~\ref{fig:DoubleTakeoverview}: 
-\DoubleTake{} first snapshots the program before its running; then the program can run at 
-full speed until the end of a program, at system calls or at synchronization boundaries;
-\DoubleTake{} only check memory accesses accumulatively at the end of a program, at system calls and 
-synchronization boundaries,  so \DoubleTake{} amortizes
-the snapshot and checking overhead over a long execution.
-\DoubleTake{} only pays the overhead to re-execute a program when a program has some memory errors. 
-In order to capture context of problematic memory accesses precisely and efficiently,
-\DoubleTake{} installs the hardware watchpoint on those problematic addresses(~\ref{sec:watchpoint})
-before a program with memory errors is re-executed(~\ref{sec:re-execute}).
-%\DoubleTake{} re-executes a program deterministically by
-%utilizing the snapshot of a program in the beginning and rolls back
-%the program to a stored state.
+\newcommand{\punt}[1]{}
 
-\begin{figure}[!t]
-{\centering
-\includegraphics[width=5.4in]{fig/DoubleTakeoverview2}
-\caption{Overview of \DoubleTake{}
-\label{fig:DoubleTakeoverview}}
+\punt{
+
+Notes from Daan Leijen:
 }
-\end{figure}
 
-% What is the rollback mechanism
-\subsection{Re-execution of A Program}
-\label{sec:re-execute}
-\DoubleTake{} targets to locate those overflows precisely using the re-execution,
-thus it is important for \DoubleTake{} to repeat the initial execution:
-those overflows and races happening in the initial execution should happen exactly the same in
-the re-execution phase, on the same addresses and with the same behavior.
-In order to achieve this target, 
-we are planning to utilize the \dthreads{} framework for determinism support.  
+\usepackage{endnotes,xspace}
 
-% What is the watch point mechanism
-\subsection{Watch Point Mechanism}
-\label{sec:watchpoint}
+\newcommand{\footnotenonumber}[1]{{\def\thempfn{}\footnotetext{\small #1}}}
+\usepackage[normalem]{ulem}
+\usepackage{graphicx}
 
-Watch point mechanism is using hardware debug registers to watch the memory accesses on
-some specific addresses. Some previous works have used this mechanism 
-for their specific targets \cite{fastboundschecking}. 
-Debug register hardware is universally supported by most if not all existing CPUs, such as
-X86 and X86-64 architecture, PowerPC, MIPS, ARM, etc. 
-Generally, this watch point technique can support the memory watching efficiently: whenever
-a memory access matches one of those debugging address, the user can be notified by an exception.
-% What is the basic idea of \DoubleTake{}.
+\usepackage{mathptmx} % rm & math
+\usepackage[scaled=0.90]{helvet} % ss
+\usepackage{courier} % tt
+% \normalfont
+\usepackage[T1]{fontenc}
 
-\section{Buffer Overflow}
-Those existing mechanisms to find out buffer overflow problems either can not pinpoint the origins of
-problems precisely or their performance overhead is too high to be deployed. 
-Those traditional approaches pinpointting the origins of problems should 
-check every memory access in order to capture those accesses beyond the scope of 
-current memory block. 
-If a buffer overflow is found, the program will be stopped immediately 
-so that user can find out where the problem occurs.
-Thus, this kind of approach is also called as ``stop-and-report'' approach here. 
+% \usepackage{lmodern}
+% \usepackage{times}
+\usepackage{subfigure}
+\usepackage{url}
+\urlstyle{rm}
+\usepackage[
+      colorlinks=false,    %no frame around URL
+      urlcolor=black,    %no colors
+      menucolor=black,    %no colors
+      linkcolor=black,    %no colors
+      pagecolor=black,    %no colors
+]{hyperref}
 
-However, ``stop-and-report'' approach introduces significant performance overhead by 
-checking every memory access,  
-preventing their usage in actual deployed environment. 
-We propose to utilize the \DoubleTake{} mechanism (described in the above section) 
-to detect buffer overflows and underflows efficiently. 
+\usepackage{color}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{comment} 
+\usepackage{setspace}
+\singlespacing
+%\onehalfspacing
+\newtheorem{thm}{Theorem}
+\newtheorem{prop}[thm]{Proposition}
+\newtheorem{cor}[thm]{Corollary}
+\newtheorem{lem}[thm]{Lemma}
+\newtheorem{defn}[thm]{Definition}
 
-In order to detect those overflows, \DoubleTake{} puts one guard zone before and 
-one after each heap object. \DoubleTake{} initializes all guard zones to a pre-known special 
-value when a heap object is allocated.
-When buffer overflow occurs, values of guard zones must be changed to a different value.
-By detecting the changes of guard zones, \DoubleTake{} can detect the buffer overflows. 
-%Since \DoubleTake{} greately reduces the number of checkings, the overhead
-%is expected to be largely amortized over a long execution time.
-%\DoubleTake{} can report more information than the traditional stop-and-report approach:
-%\DoubleTake{} can provide the whole access sequence
-%on some specific addresses, which can help to identify the actual
-%problems in the complex systems.
-Same as the mechanisms to locate the write-write races, \DoubleTake{} only checks overflows 
-in the end of a program or at synchronization boundries, hoping to greately reduce
-the overhead.  
-\DoubleTake{} also utilizes the rollback mechnism and watch point mechanism to find
-the origins of overflows precisely.
+\newcommand{\cfunction}[1]{{\bf \tt #1}}
+\newcommand{\malloc}{\cfunction{malloc}}
+\newcommand{\realloc}{\cfunction{realloc}}
+\newcommand{\free}{\cfunction{free}}
+\newcommand{\madvise}{\cfunction{madvise}}
+\newcommand{\brk}{\cfunction{brk}}
+\newcommand{\sbrk}{\cfunction{sbrk}}
+\newcommand{\mmap}{\cfunction{mmap}}
+\newcommand{\munmap}{\cfunction{munmap}}
+\newcommand{\mprotect}{\cfunction{mprotect}}
+\newcommand{\mlock}{\cfunction{mlock}}
 
-\subsection{Preliminary Results}
-We have finished a practical buffer overflow detection tool for single-threaded program, which only
-introduces minor performance overhead (about 5\%), much lower than the state-of-the-art technique.
-The state-of-the-art tool to detect the buffer overflow problem,
-AddressSanitizer from \texttt{Google}, introduces about 26\% performance overhead.
+\hyphenation{app-li-ca-tion}
+\hyphenation{Die-Hard}
+\hyphenation{Ar-chi-pe-la-go}
+\hyphenation{buf-fer}
+\hyphenation{D-threads}
+\hyphenation{Heap-Layers}
+\hyphenation{wait-Token}
+\hyphenation{mul-ti-threa-ded}
+\hyphenation{me-m-ory}
 
-% What is the challenge here?
-\section{Schedule and Delieverables}
+\hyphenation{pthread-create}
+\hyphenation{pthread-self}
+\hyphenation{pthread-mutex-lock}
+\hyphenation{pthread-mutex-unlock}
 
-The proposed timeline for this thesis is as follows:
+\newcommand{\dthreads}{{\scshape Dthreads}}
+\newcommand{\Dthreads}{{\scshape Dthreads}}
+\newcommand{\doubletake}{{\scshape DoubleTake}}
+\newcommand{\DoubleTake}{{\scshape DoubleTake}}
+\newcommand{\stopgap}{{\scshape DoubleTake}}
+\newcommand{\Stopgap}{{\scshape DoubleTake}}
+\newcommand{\StopGap}{{\scshape DoubleTake}}
+\newcommand{\Sheriff}{{\scshape Sheriff}}
+\newcommand{\sheriff}{{\scshape Sheriff}}
+\newcommand{\Grace}{{\scshape Grace}}
+\newcommand{\grace}{{\scshape Grace}}
+\newcommand{\SheriffProtect}{\textsc{Sheriff-Protect}}
+\newcommand{\sheriffProtect}{\textsc{Sheriff-Protect}}
+\newcommand{\sheriffprotect}{\textsc{Sheriff-Protect}}
+\newcommand{\SheriffDetect}{\textsc{Sheriff-Detect}}
+\newcommand{\sheriffDetect}{\textsc{Sheriff-Detect}}
+\newcommand{\sheriffdetect}{\textsc{Sheriff-Detect}}
+\newcommand{\pthreads}{\texttt{pthreads}}
 
-\begin{table}[ht]
-\centering
-\begin{tabular}{ l r}
-Implementing the basic machanism of \DoubleTake{} & March 2013 \\ 
-Evaluating the performance and effectiveness & May 2013 \\
-Improving the performance and effectiveness & June 2013 \\
-Thesis chapter drafts & May 2013 \\ 
-Paper submitted to ASPLOS & July 2013 \\
-Thesis defense  & Summer 2013\\
-Graduate & Summer 2013 \\
-\end{tabular}
-{\label{table:timeline}}
-\end{table}
+\definecolor{lightgray}{rgb}{.9,.9,.9}
+\definecolor{darkgray}{rgb}{.4,.4,.4}
+\definecolor{purple}{rgb}{0.65, 0.12, 0.82}
 
-For this thesis work, ideally, a paper would be submitted to ASPLOS conference in July 2013. 
-Corresponding code will be publicize on GitHub, so that people can utilize the software
-derived from this thesis work
-to detect the race conditions and buffer overflows in multithreaded programs.
+\lstdefinelanguage{c++threads}[]{c++}{
+  morekeywords={pthread_create,pthread_join},
+  keywordstyle=\color{blue}\bfseries,
+  ndkeywords={class, export, boolean, throw, implements, import, this},
+  ndkeywordstyle=\color{darkgray}\bfseries,
+  identifierstyle=\color{black},
+  sensitive=false,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  commentstyle=\color{purple}\ttfamily,
+  stringstyle=\color{red}\ttfamily,
+  morestring=[b]',
+  morestring=[b]"
+}
+\lstset{
+   language=c++threads,
+   backgroundcolor=\color{lightgray},
+   extendedchars=true,
+   basicstyle=\footnotesize\ttfamily,
+   showstringspaces=false,
+   showspaces=false,
+   numbers=none,
+   numberstyle=\footnotesize,
+   numbersep=9pt,
+   tabsize=2,
+   breaklines=true,
+   showtabs=false,
+   captionpos=b
+}
+%\lstset{language=c++threads, basicstyle=\ttfamily\scriptsize,frame=trbl,tabsize=4} % ,numbers=left,numberstyle=\tiny}
+
+\definecolor{Gray}{cmyk}{0,0,0,0.5}
+
+\begin{document}
+
+\CopyrightYear{2014}
+\copyrightdata{XXX-X-XXXXX-XXX-X/XX/XX}
+
+\title{{\huge \bf \doubletake{}}: Evidence-Based Dynamic Analysis}
+% Efficiently and Precisely Locating Buffer Overflows}
+
+% \authorinfo{\emph{authorship list removed for anonymity}}
+
+%\punt{
+\authorinfo{Tongping~Liu \and Charlie~Curtsinger \and Emery~D.~Berger}
+{School of Computer Science \\
+University of Massachusetts Amherst \\
+Amherst, MA 01003 \\
+{\{tonyliu,charlie,emery\}@cs.umass.edu}
+}
+
+\punt{
+\numberofauthors{1}
+\author{
+\alignauthor Tongping~Liu and Emery~D.~Berger \\
+\affaddr{Department of Computer Science} \\
+\affaddr{University of Massachusetts, Amherst} \\
+\affaddr{Amherst, MA 01003} \\
+\email{\{tonyliu,emery\}@cs.umass.edu} \\
+}
+}
+
+\maketitle
+
+\begin{comment}
+\end{comment}
+
+\begin{abstract}
+\input{abstract}
+
+\end{abstract}
+
+%  Language-based approaches require programmers to write their code in specialized languages. 
+
+
+\punt{
+\category{D.1.3}{Programming Techniques}{Concurrent Programming--Parallel Programming}
+\category{D.2.5}{Software Engineering}{Testing and Debugging--Debugging Aids}
+
+\terms
+Design, Reliability, Performance
+
+\keywords
+Buffer Overflow, Detection 
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+\input{introduction}
+
+\section{Overview}
+\input{overview}
+
+\section{Applications}
+\input{application}
+
+\section{Implementation}
+\input{implementation}
+
+%\section{\doubletake{} for Multithreading Programs}
+%\input{multithreading}
+
+%\section{Optimization}
+%\input{optimization}
+
+\section{Evaluation}
+\input{evaluation}
+
+\section{Discussion}
+\input{discussion}
+
+\section{Related Work}
+\input{relatedwork}
+
+% eliminate global lock
+% possibly adopting a page-ownership protocol as used by ...
+
+\section{Conclusion}
+\input{conclusion}
+
+\section{Acknowledgements}
+\begin{comment}
+We want to thank Qiang Zeng, Dinghao Wu and Peng Liu for providing
+their test cases used in their Cruiser paper.  We also thank Scott Kaplan for his
+suggestions and comments in the development of \doubletake{}.
+\end{comment}
+
+{
+\bibliographystyle{abbrv}
+\bibliography{refs}
+}
+
+\end{document}
