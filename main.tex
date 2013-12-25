@@ -86,7 +86,8 @@
 %%                     the final version
 %% umthesis changes the default font size to 12pt, but you may specify 10pt or
 %%   11pt in the options.
-\documentclass[proposal]{umthesis}          % for Ph.D. dissertation or proposal
+%%\documentclass[proposal]{umthesis}          % for Ph.D. dissertation or proposal
+\documentclass{umthesis}          % for Ph.D. dissertation or proposal
 %\documentclass{umthesis}          % for Ph.D. dissertation or proposal
 % \documentclass[thesis]{umthesis}  % for Master's thesis
 
@@ -131,13 +132,12 @@
 \newcommand{\sheriffprotect}{\textsc{Sheriff-Protect}}
 \newcommand{\SheriffDetect}{\textsc{Sheriff-Detect}}
 \newcommand{\sheriffDetect}{\textsc{Sheriff-Detect}}
-\newcommand{\sheriffdetect}{\textsc{Sheriff-Detect}}
-\newcommand{\stopgap}{\textsc{StopGap}}
-\newcommand{\Stopgap}{\textsc{StopGap}}
-\newcommand{\StopGap}{\textsc{StopGap}}
+\newcommand{\sheriffDetect}{\textsc{Sheriff-Detect}}
+\newcommand{\Predator}{\textsc{Predator}}
+\newcommand{\predator}{\textsc{Predator}}
+\newcommand{\DoubleTake}{\textsc{DoubleTake}}
+\newcommand{\doubletake}{\textsc{DoubleTake}}
 \newcommand{\pthreads}{\texttt{pthreads}}
-\newcommand{\redline}{\textsc{redline}}
-\newcommand{\Redline}{\textsc{redline}}
 
 
 \begin{document}
@@ -152,11 +152,10 @@
 \bachelors{B.S.}{Harbin Institute of Technology}
 \masters{M.E.}{Huazhong University of Science and Technology}
 \secondmasters{M.S.}{UNIVERSITY OF MASSACHUSETTS AMHERST}
-%\priordoctorate{Ph.D.}{UNIVERSITY OF MASSACHUSETTS AMHERST}
+\priordoctorate{Ph.D.}{UNIVERSITY OF MASSACHUSETTS AMHERST}
 \committeechair{Emery D. Berger}
 \firstreader{Scott F. H. Kaplan}
 \secondreader{Yuriy Brun}
-%{Yannis Smaragdakis}
 \thirdreader{Israel Koren}   % Optional
 %\fifthreader{}            % Optional
 %\sixthreader{}            % Optional
@@ -241,11 +240,11 @@ The second system, \dthreads{}, automatically ensures determinism for unmodified
 applications without requiring programmer intervention. \dthreads{} leverages virtual 
 memory and process isolation, combined with a deterministic commit protocol, 
 to ensure robust deterministic execution with very low runtime overhead.
-Finally, we propose \stopgap{}, a novel detection tool for write-write races based on synchronization
+Finally, we propose \DoubleTake{}, a novel detection tool for write-write races based on synchronization
  boundaries.
-\stopgap{} detects more races than the standard happens-before
+\DoubleTake{} detects more races than the standard happens-before
 approaches without introducing false positives, unlike lockset based approaches.
-\stopgap{} can also locate those heap-based overflows and 
+\DoubleTake{} can also locate those heap-based overflows and 
 underflows without adding perceptible performance overhead.
 
 \end{abstract}
@@ -287,13 +286,13 @@ underflows without adding perceptible performance overhead.
 \input {relatedwork}
 
 \chapter{\sheriff{}:Precise Detection and Automatic Mitigation of False Sharing}
-\input {sheriff}
+\input {sheriff/sheriff}
 
 \chapter{\dthreads{}:Efficient Deterministic Multithreading}
-\input {dthreads}
+\input {dthreads/dthreads}
 
 \chapter{Proposed Work: Locate Memory Errors Efficiently and Precisely}
-\input {stopgap}
+\input {DoubleTake/stopgap}
 
 %%
 %% Beginning of back matter
