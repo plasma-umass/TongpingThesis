@@ -11,8 +11,14 @@
 \caption{A simple multithreaded program with a race.\label{fig:sample}}
 \end{figure}
 
-Figure~\ref{fig:sample} shows a simple racey program that nondeterministically produces the outputs ``1,0,'' ``0,1'' and ``1,1.''  Because these threads access shared data without locks, modifications to shared state are immediately visible.  The order in which these modifications occur can change from run-to-run, resulting in nondeterministic output.  
-Using \dthreads{}, this simple code will \emph{always} produce the output ``1,1," making it easy or the developer to reproduce and locate the data race.
+Figure~\ref{fig:sample} shows an example multithreaded program that,
+because of data races, non-deterministically produces the outputs
+``1,0,'' ``0,1'' and ``1,1.''  The order in which these modifications
+occur can change from run to run, resulting in nondeterministic
+output.  Using \dthreads{}, this program will \emph{always} produce
+the output ``1,1''. If this is not the desired behavior, the fact that
+the result is reproducible would make it simple for the developer to
+reproduce and locate the data race.
 
 \textbf{Threads as Processes:}
 In \dthreads{}, threads are actually run as separate processes, an idea borrowed from Grace~\cite{grace}.  This means modifications by one thread are not visible to other threads until they are committed to global shared state.  Implementation is discussed in depth in Section~\ref{sec:threadsasprocs}.
@@ -56,14 +62,20 @@ In the end of thread, each thread are committed in the order T1--T2, then \dthre
 % TTT: 
 \subsection{Isolated Memory Access}
 %\subsection{Threads as Processes}
+
 \label{sec:threadsasprocs}
 In order to achieve the deterministic memory access, 
-\dthreads{} tries to isolate the memory access among different
-threads in the beginning and commit those changes of different threads using a deterministic order.
+\dthreads{} isolates memory accesses among different
+threads between commit points, and commits the updates of each thread deterministically.
 %TTT end
 
-To isolate the memory access among different threads, \dthreads{} are treating threads as processes.
-In a multithreaded program running with pthreads, threads share all memory except for the stack.  Changes to memory are immediately visible to all other threads.  Threads share the same file descriptors, sockets, device handles, and windows.  Because \dthreads{} runs threads in separate processes, these shared resources must be explicitly managed by the runtime library.
+To isolate the memory access among different threads, \dthreads{} are
+treating threads as processes.  In a multithreaded program running
+with \pthreads{}, threads share all memory except for the stack.  Changes
+to memory are immediately visible to all other threads.  Threads share
+the same file descriptors, sockets, device handles, and windows.
+Because \dthreads{} runs threads in separate processes, these shared
+resources must be explicitly managed by the runtime library.
 
 \subsubsection{Thread Creation}
 \dthreads{} replaces the \texttt{pthread\_create()} function.  Using the \texttt{clone} system call, \dthreads{} controls which resources are shared between processes.  The \texttt{CLONE\_FILES} flag (shown on line 3 of Figure~\ref{fig:threadcreation}), is used to create processes that share the same file descriptor table, but have distinct address spaces.
@@ -93,7 +105,7 @@ Reads initially go directly to the shared mapping,
 but after the first write operation,
 both reads and writes are entirely private.
 %TTT_end
-Memory allocations are issued from the shared heap memory using a scalable per-thread heap organization loosely based on Hoard~\cite{BergerMcKinleyBlumofeWilson:ASPLOS2000} and built using HeapLayers~\cite{BergeZornMcKinley:2001}.  \dthreads{} divides the heap into a fixed number of sub-heaps (currently 16).  Each thread uses a hash of its thread index to find the appropriate sub-heap.
+Memory allocations are issued from the shared heap memory using a scalable per-thread heap organization loosely based on Hoard~\cite{BergerMcKinleyBlumofeWilson:ASPLOS2000} and built using HeapLayers~\cite{BergerZornMcKinley:2001}.  \dthreads{} divides the heap into a fixed number of sub-heaps (currently 16).  Each thread uses a hash of its thread index to find the appropriate sub-heap.
 
 %\subsection{Shared Memory} 
 % TTT: Change the title
@@ -121,8 +133,8 @@ and guarantee deterministic commit order, and the details of commits to shared m
 \label{sec:schedule}
 
 The boundary between the parallel and serial phase is the internal fence.  
-It is not possible to implement the internal fence using the \texttt{pthreads} barrier 
-because the number of threads required to proceed can change during execution and the \texttt{pthreads} barrier does not provide this functionality (details in Section~\ref{sec:synchronization}).
+It is not possible to implement the internal fence using the \pthreads{} barrier 
+because the number of threads required to proceed can change during execution and the \pthreads{} barrier does not provide this functionality (details in Section~\ref{sec:synchronization}).
 
 \label{sec:token}
 \begin{figure}
@@ -226,8 +238,7 @@ void atomicBegin() {
 		page.writeProtect();
 		page.privateCopy.free();
 	}
-	// CCC: what does this next line do?
-	cleanupDirtyPagelist(); 
+	cleanupModifiedPageslist(); 
 }
 \end{lstlisting}
 \caption{Pseudocode for \texttt{atomicBegin}.\label{fig:atomicbegin}}
@@ -249,7 +260,6 @@ void atomicEnd(bool doCleanup) {
 			page.copyCommit();
 		} else {
 			page.diffCommit();
-			// CCC: Why isn't this outside the 'if'?
 			if(doCleanup) {
 				page.writeProtect();
 				page.privateCopy.free();
@@ -281,7 +291,7 @@ only supported synchronization by Grace is thread exit; Grace enforces
 a sequential semantics in thread exit.
 
 \dthreads{} supports the full range of synchronizations in the
-pthreads API, including locks, conditional variables, barriers and
+\pthreads{} API, including locks, conditional variables, barriers and
 different kinds of thread exit.
 
 \subsubsection{Locks}
@@ -334,7 +344,7 @@ First, it will check whether current threads has already held the token(line 2).
 If not, then current thread should wait the token in order to enter into 
 the serial phase(line 3). The first thing in the serial phase is to
 commit those changes of current transaction to the shared mapping and 
-do some basic cleanup (line 4) (see ~\ref{sec:atomicBegic}).
+do some basic cleanup (line 4) (see ~\ref{sec:atomicBegin}).
 In unlock(), we decrement the count for lock (line 2) and don't do anything if
 lock is no equal to 0, which makes multiple locks behaving as a huge lock, potentially 
 avoiding any possible deadlock problems.
@@ -373,7 +383,7 @@ first-in-first-out rule for all waiting threads.
 Since those threads calling \texttt{cond\_wait} should get the token in order
 to ensure the determinism, they have to release the token to next
 thread in the active list. After finishing these work, then those
-threads can actuall waiting on the real process-shared conditional
+threads can actually wait on the real process-shared conditional
 variable.
 
 After one thread is awakened, the thread should try to get token at
@@ -382,9 +392,9 @@ still inside the critical section (under lock protection)
 and the token is required to guarantee determinism under the critical region. 
 
 \dthreads{} uses the busy wait mechanism to get the global token. 
-It is noted that this new awakened thread don't need to call waitToken() to get
-token since waitToken() should wait for all alivethreads to reach the fence at first. 
-Now the waking thread has already passed the fence, calling waitToken() can potentially
+It is noted that this new awakened thread don't need to call \texttt{waitToken()} to get
+token since \texttt{waitToken()} should wait for all alive threads to reach the fence at first. 
+Now the waking thread has already passed the fence, calling \texttt{waitToken()} can potentially
 put this new awakened thread to the next run of serial phase, which not only hurts
 the performance but also introduce some possible deadlock.
 
@@ -442,9 +452,9 @@ void cond_signal() {
 \label{fig:condsignal}}
 \end{figure}
 
-In \texttt{pthreads}, the only difference between \texttt{cond\_signal}
-and cond\_broadcast is that \texttt{cond\_signal} only wakes up the
-first thread, while cond\_broadcast wakes up all threads in the
+In \pthreads{}, the only difference between \texttt{cond\_signal}
+and \texttt{cond\_broadcast} is that \texttt{cond\_signal} only wakes up the
+first thread, while \texttt{cond\_broadcast} wakes up all threads in the
 queue. To guarantee determinism for \texttt{cond\_signal}, \dthreads{}
 broadcasts the signal to all threads blocked on the condition
 variable, but only the status of first thead in the queue can be set
@@ -454,11 +464,11 @@ These functions remove the corresponding threads from the queue
 of condition variable and insert them to the header of active list,
 thus those threads can get token next.  Note that it is very important
 to do so both to avoid deadlock and to improve performance. By placing
-awakened theads on the next runnable position rather than on the tail
+awakened threads on the next runnable position rather than on the tail
 of the run queue, \dthreads{} avoids possible deadlocks. 
 Thus, these awakened threads can run immediately (see line 10 of Figure~\ref{fig:condwait}) 
 after getting the token, which improves performance. Finally, the
-signalling thread releases the token to awakened threads.
+signaling thread releases the token to awakened threads.
 
 Figure~\ref{fig:condsignal} presents the pseudocode
 for \texttt{cond\_signal}. Before proceeding, the caller waits for
@@ -507,11 +517,6 @@ the run queue and places them on the corresponding barrier queue.
 To avoid blocking on the barrier, the last thread entering into
 the barrier moves all threads to the runnable queue and increases
 the fence's thread count.
-
-To improve parallelization, atomicBegin() is called to write-protect 
-all dirty pages and release private copies before they actually wait on 
-the real process-shared barrier. Thus, the work of atomicBegin() runs in parallel
-with other threads. 
 
 Figure~\ref{fig:barrierwait} presents pseudocode
 for \texttt{barrier\_wait}. The calling thread first waits for the
@@ -584,38 +589,44 @@ their status, which can be recorded. If one thread being cancelled are
 waiting on condition variable or barrier, it should be removed from
 corresponding queue in order to guarantee the correctness.
 
-\subsection{Racey Example}
+\subsection{Data Race Example}
 % return to racey example from the top of the section, walk through an execution with dthreads
 
 \subsection{Optimizations}
-\dthreads{} does a lot of optimizations to improve the performance.
+\dthreads{} performs a number of optimizations to improve performance.
 
-\subsubsection{Optimization for One Thread}
-When only one thread is running, \dthreads{} does not provide memory protection 
+\textbf{Single Thread Case: }
+When only one thread is running, \dthreads{} does not employ memory protection 
 and treats all synchronization operations as no-ops.
+In addition, when only one thread is active because other threads are waiting on conditional variables, 
+\dthreads{} does not try to commit local changes to the shared mapping (or discard  
+private dirty pages). Updates are only committed when the thread issues
+a \texttt{cond\_signal} or \texttt{cond\_broadcast} call, which
+will wake up a thread and thus require publication of any updates.
 
-\subsubsection{Lazy Twin Creation}
+\textbf{Lazy Twin Creation: }
 Twin pages are only created when a page has multiple writers during the same transaction.  
 During the commit phase, the single writer can directly copy its working copy to the shared state 
-without performing a diff.  This reduces the overhead in the common case, 
+without performing a diff. This reduces the overhead in the common case, 
 where a single thread is the exclusive writer of a page.
 
-\subsubsection{Commit Optimization}
-If one thread is the only writer on one page or it is the first thread to commit a page,
+\textbf{Commit Optimization: }
+If one thread is the only writer on one page, or if it is the first thread to commit a page,
 they can directly copy its working copy to shared state.
-We are relying on one global page version number to check that in implementation. 
-In the page handler, each thread can save one version number for every dirty page. 
-In the commit process, \dthreads{} could compare this local version number with global version
-number to check whether this is the first writer (see Figure~\ref{fig:atomicBegin} for pseudo code).
-Any other threads that have written to this page must perform a diff against the twin page.
+\dthreads{} currently relies on the comparison between local version number and the global page version number. 
+In the page handler, each thread obtains the version number for every dirty page. 
+In the commit phase, \dthreads{} compares this local version number with the global version
+number to check whether it is the first writer (see Figure~\ref{fig:atomicend}).
 
-Another optimization is to do parallization as much as possible. 
-\texttt{atomicBegin} only does some laundry jobs, releasing those private page frames or resetting pages to read-only mode.
-We are trying to make this to parallize with other works since it only affect one threads' behavior. 
-For example, \texttt{atomicEnd} in lock operations (see Figure~\ref{fig:lock} 
-not only commits, but also launders pages if
-necessary. Clearly, it is safe to cleanup all dirty pages but that
-brings the performance problem since it is finished in serial phase.
-By using the \texttt{atomicEnd(true)}, only those pages modified by
-earlier threads should be cleaned up in order to give one complete
-image of one page which later transactions may refer to.
+\textbf{Parallelization: }
+\dthreads{} attempts to exploit as much parallelism as possible in the runtime system itself.
+For example, \texttt{atomicBegin} must perform certain bookkeeping
+tasks, including releasing private page frames or resetting pages to
+read-only mode.  \texttt{atomicEnd} in lock operations (see
+Figure~\ref{fig:lock} not only commits, but also launders those dirty
+pages modified by earlier threads.  Clearly, it is safe to cleanup all
+dirty pages but that can cause a performance degradation since this
+occurs in the serial phase.  By calling \texttt{atomicEnd()} with the
+argument \texttt{true}, only those pages modified by earlier threads
+will be cleaned up, in order to give one complete image of one page
+which later transactions may refer to.

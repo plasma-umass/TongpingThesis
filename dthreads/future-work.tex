@@ -1,18 +1,24 @@
 \label{sec:future-work}
 
-Currently, we haven't handle those external non-determinism, for example, network input or timing,
-which can affect the determinism if the applications are relying on that. 
-One part of our future work wants to support these external non-determinism by using a shim layer to record those
-external non-deterministic events. 
-%Also, in current version, those memory allocation can be non-deterministic, which can potentially introduce some non-determinism if one application includes some un-safe memory operations. So we can easily to avoid this problem
-%by recording those order to allocate one superblock.
+We are investigating ways to enhance the performance and determinism
+guarantees of \dthreads{}.
 
-Another part of our future-work are trying to handle the performance problem brought by too many dirty pages.
-We can keep track of the ownership of one memory page. If one memory page is owned by one thread, normally
-we don't need to commit those changes to the shared mapping. So page commits can be limitted to 
-those actually shared page, hopefully we can improve the performance by using this mechanism.
+While \dthreads{} ensures full \emph{internal} determinism, it does
+not currently guarantee determinism if the application is sensitive
+to \emph{external non-determinism}, such as the latency of network
+connections or time of day. We are examining the use of a shim layer
+to enforce deterministic delivery of such events in order to achieve
+the same kind of external determinism guarantees provided by
+dOS~\cite{deterministic-process-groups}, although without changes to
+the underlying operating systems. We also plan to examine
+whether \dthreads{} can be used directly in conjunction with dOS.
 
-%Replace effective single lock with guaranteed ordering on locks.
-%Adopt ownership protocol a la DMP-O?
-%Improve the determinism brought by the memory allocation, then we can fix those problem caused by un-safe memory operations.
-%Support for external non-determinism.
+The key performance problem for \dthreads{} is when an application
+modifies an extremely large number of pages. For those
+benchmarks, \dthreads{} can incur high overheads. We plan to
+incorporate an ownership protocol to limit page copying and thus
+improve performance. In many cases, these pages are ``owned'' (read
+and modified) by a single thread. Tracking these pages would
+allow \dthreads{} to avoid copying modified private pages to the
+shared memory space.
+

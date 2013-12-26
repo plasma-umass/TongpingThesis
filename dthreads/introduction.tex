@@ -65,16 +65,18 @@ prevents lock-based deadlocks.
 
 \dthreads{} is easy to deploy: it works as a direct replacement for
 the \pthreads{} library, requiring no code modifications or
-recompilation. \dthreads{} is also efficient. Its software
-architecture avoids the need for expensive write buffers, and 
-its commit protocol eliminates cache-line based false sharing, a
-notorious performance problem for multithreaded programs. These two
-features enable \dthreads{} to nearly match or even exceed the
-performance of \pthreads{} for the majority of the benchmarks examined
-here. \dthreads{}
-thus is a significant improvement over the state of the art in
-deployability and performance, and provides evidence that fully
-deterministic multithreaded programming may be practical.
+recompilation. \dthreads{} is also efficient. \dthreads{} leverages
+process isolation and virtual memory protection to track and isolate
+concurrent memory updates, which it deterministically commits. Not
+only does this approach greatly reduce overhead versus approaches that
+use software read and write barriers, it also eliminates cache-line
+based false sharing, a notorious performance problem for multithreaded
+programs. These two features combine to enable \dthreads{} to nearly
+match or even exceed the performance of \pthreads{} for the majority
+of the benchmarks examined here. \dthreads{} thus marks a significant
+improvement over the state of the art in deployability and
+performance, and provides promising evidence that fully deterministic
+multithreaded programming may be practical.
 
 % XXX borrowed from Grace, XXX borrowed from Treadmarks, etc.
 

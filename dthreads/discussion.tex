@@ -30,7 +30,7 @@ extremely error-prone and generally deprecated, making this a rare
 coding practice.
 
 \textbf{External determinism: }
-While \dthreads{} provides internal non-determinism, it does not
+While \dthreads{} provides internal determinism, it does not
 guarantee determinism when a program's behavior depends on external
 sources of non-determinism, such as system time or I/O
 events. Incorporation of \dthreads{} in the dOS framework, an OS
@@ -42,16 +42,15 @@ work~\cite{deterministic-process-groups}.
 Section~\ref{sec:evaluation} shows that \dthreads{} can provide high
 performance for a number of applications; in fact, for the majority of
 the benchmarks examined, \dthreads{} matches or even exceeds the
-performance of \pthreads{}. However, \dthreads{} does occasionally
-degrade performance, sometimes substantially. The primary culprit is
-the intensive use of locks (that is, when programs that acquire and
-release locks at high frequency), which are much more expensive
-in \dthreads{} than in \pthreads{}. The \texttt{ferret} benchmark from
-the PARSEC benchmark suite exemplfies this behavior.
-
-However, programmers using \dthreads{} could greatly reduce the use of
-locks, and thus improve performance, by taking advantage
-of \dthreads{}' strong isolation guarantee between threads.
+performance of \pthreads{}. However, \dthreads{} could occasionally
+degrade performance, sometimes substantially. One way it could do so
+would be to exhibit an intensive use of locks (that is, acquiring and
+releasing locks at high frequency), which are much more expensive
+in \dthreads{} than in \pthreads{}. However, because of its determinism guarantees,
+\dthreads{} could allow programmers to greatly reduce their use of locks, and thus
+improve performance. Other application characteristics, also explored
+in Section~\ref{sec:performance}, can also impair performance
+with \dthreads{}.
 
 
 %  Since Surprise locking inside libraries. Not a limitation \emph{per
@@ -68,7 +67,7 @@ operations. This increased footprint does not seem to be a problem in
 practice, both because the number of modified pages is generally far
 smaller than the number of pages read, and because it is transitory:
 all private pages are relinquished to the operating system
-(via \munmap{}) at the end of every commit operation.
+(via \madvise{}) at the end of every commit operation.
 
 %Increased memory footprint (linear in the number of dirtied (modified) pages).
 

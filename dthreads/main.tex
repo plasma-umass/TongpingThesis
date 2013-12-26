@@ -1,107 +1,159 @@
-% How to implement the deterministic threads.
-\Dthreads{} is built on \Sheriff{} framework to support deterministic executions of
-multithreaded programs:  a program with the same input always has the same execution and 
-the same output.
-\Dthreads{} is also a drop-in replacement of the \pthreads{} library:
-users don't need to change their programs, 
-to recompile their programs, nor to change the underlying operating
-systems. \dthreads{} automatically provides the determinism for programs if they are linked to 
-\dthreads{} library directly or using LD\_PRELOAD mechanism.
+% Make sure to put back 
 
-To support the deterministic running of a program, 
-\Dthreads{} breaks the whole execution into intermittent parallel phases and serial phases 
-(see Figure~\ref{fig:dthreadsphases}) based on explicit synchronization calls of a program: 
-program sections without synchronizations are running in parallel 
-phases and others are running in serial phases.
-Synchronizations are those ways to communicate across different threads, 
-including thread creation and exit; mutex lock and unlock; conditional variable wait
-and signal; posix sigwait and signal; and barrier wait. 
+\date{} % \vspace*{-0.2in}}
 
-In parallel phases, thread executions are running in the isolation mode, which is discussed 
-in detail in Section~\ref{sec:dthreadsisolation}.
-In serial phases, updates from different threads are exposed to other threads 
-in a deterministic order and deterministic synchronizations are performed, which are 
-discussed in Sections~\ref{sec:dthreadsdeterm}. 
+\documentclass{sigplanconf}
+\usepackage{endnotes,xspace}
+\nocaptionrule
 
-\begin{figure}[b]
-{\centering 
-\includegraphics{dthreads/figure/phase-diagram} 
-\caption{Overview of \dthreads{} phases
-\label{fig:dthreadsphases}}
-}
-\end{figure}
+\newcommand{\footnotenonumber}[1]{{\def\thempfn{}\footnotetext{\small #1}}}
+\usepackage[normalem]{ulem}
+\usepackage{graphicx}
 
-\section{Isolated Memory Accesses}
-\label{sec:dthreadsisolation}
+\usepackage{mathptmx} % rm & math
+\usepackage[scaled=0.90]{helvet} % ss
+\usepackage{courier} % tt
+\normalfont
+\usepackage[T1]{fontenc}
 
-\Sheriff{} framework provides a ``per-thread-isolation'' mechanism, isolating the executions
-of different threads relying on different address spaces of processes.
-\dthreads{} utilizes this isolation mechanism to localize different threads' modifications in
-parallel phases: 
-updates of each thread can not be seen by other threads and a thread can only observe those 
-changes made by itself in the program order. 
-Inside a parallel phase, the execution is not intervened by those executions from other threads 
-so it is guaranteed to be deterministic. 
+% \usepackage{lmodern}
+% \usepackage{times}
+\usepackage{subfigure}
+\usepackage{url}
+\urlstyle{rm}
+\usepackage[
+      colorlinks=false,    %no frame around URL
+      urlcolor=black,    %no colors
+      menucolor=black,    %no colors
+      linkcolor=black,    %no colors
+      pagecolor=black,    %no colors
+]{hyperref}
 
-\section{Deterministic Memory Updates and Synchronizations}
-%In the serial phases, updates from different threads are exposed in a deterministic order and deterministic synchronizations are performaned. We discussed these mechanisms in Sections~
-\label{sec:dthreadsdeterm}
-Since multithreaded programs often use shared memory to communicate, 
-\dthreads{} must expose one thread's modifications 
-to other threads at synchronization points deteriminically in order to ensure 
-the deterministic execution.
-%, these updates must be applied at deterministic times, and in a deterministic order.
-%\dthreads{} exposed those modifications to the shared mapping in sequence 
-%at synchronization points.
- 
-However, those local modificatons can not be exposed immediately when a thread reaches a 
-synchronization point: committing local updates to the shared mapping should not
-change the views of memory state for other threads. 
-In order to guarantee the determinism, \dthreads{} introduces an internal fence: 
-a thread only commits its local modifications after all other threads reach 
-the same internal fence. 
-This fence is similar to the barrier mechanism of \pthreads{}.  
-We re-implemented this since
-\pthreads{} barrier can not support the change of waiters number dynamically.
+\usepackage{color}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{comment} 
+\usepackage{setspace}
+\singlespacing
+%\onehalfspacing
+\newtheorem{thm}{Theorem}
+\newtheorem{prop}[thm]{Proposition}
+\newtheorem{cor}[thm]{Corollary}
+\newtheorem{lem}[thm]{Lemma}
+\newtheorem{defn}[thm]{Definition}
 
-In order to avoid races in commit procedures, those commits must be performed in a 
-deterministic order: 
-\dthreads{} invents a global token to pass across differnt threads in a round-robin way  
-and a thread can only commit its local modifications when holding the token.
+\newcommand{\dthreads}{\textsc{Dthreads}}
+\newcommand{\Dthreads}{\textsc{Dthreads}}
+\newcommand{\pthreads}{\texttt{pthreads}}
 
-The order to pass token is set to the order of threads creation initially but can be changed 
-in some cases: 
-when a thread is waiting on conditional variables, this thread will be taken out of the list 
-of token passing; it will be put to the list again when waken up from conditional wait. 
-Also, synchronizations are performed by utilizing this global token too: a thread can perform 
-synchronizations when it holds the token. 
+\newcommand{\cfunction}[1]{{\bf \tt #1}}
+\newcommand{\malloc}{\cfunction{malloc}}
+\newcommand{\realloc}{\cfunction{realloc}}
+\newcommand{\free}{\cfunction{free}}
+\newcommand{\madvise}{\cfunction{madvise}}
+\newcommand{\brk}{\cfunction{brk}}
+\newcommand{\sbrk}{\cfunction{sbrk}}
+\newcommand{\mmap}{\cfunction{mmap}}
+\newcommand{\munmap}{\cfunction{munmap}}
+\newcommand{\mprotect}{\cfunction{mprotect}}
+\newcommand{\mlock}{\cfunction{mlock}}
 
-It is possible to encounter the deadlock problem when a thread holding multiple locks 
-performs locks one by one using this global token. 
-\dthreads{} treats multiple locks as a single lock: the token is passed to next thread when all locks
-are released. 
+\hyphenation{app-li-ca-tion}
+\hyphenation{Die-Hard}
+\hyphenation{Ar-chi-pe-la-go}
+\hyphenation{buf-fer}
+
+\lstset{language=c++, basicstyle=\ttfamily\scriptsize,frame=trbl,tabsize=4,numbers=left,numberstyle=\tiny}
+
+\definecolor{Gray}{cmyk}{0,0,0,0.5}
+
+\begin{document}
+
+\conferenceinfo{PLDI 2011,} {June 4--8, San Jos\'e, California, USA.}
+\CopyrightYear{2011}
+\copyrightdata{XXX-X-XXXXX-XXX-X/XX/XX}
+
+\title{\textsc{Dthreads}: Efficient and Deterministic Multithreading}
+
+\authorinfo{\emph{authorship list removed for anonymity}}
+
+%\authorinfo{
+%Tongping~Liu \and Charlie~Curtsinger \and Emery~D.~Berger}
+%{Dept.\ of Computer Science \\ University of Massachusetts, Amherst \\
+%Amherst, MA 01003} {\{tonyliu,charlie,emery\}@cs.umass.edu}
+
+\maketitle
+
+\begin{comment}
+\end{comment}
+
+\begin{abstract}
+Multithreaded programming is notoriously difficult to get right.  A
+key problem is non-determinism, which complicates debugging, testing,
+and reproducing errors in multithreaded applications. One way to
+simplify multithreaded programming is to enforce deterministic
+execution. However, past deterministic systems are incomplete
+or impractical. Language-based approaches require programmers to write
+their code in specialized languages. Other systems require program
+modification, do not ensure determinism in the presence of data
+races, do not work with general-purpose multithreaded programs, or
+suffer substantial performance penalties (up to $8\times$ slower
+than \pthreads{}) that limit their usefulness.
+
+This paper presents \dthreads{}, an efficient deterministic
+multithreading system for unmodified C/C++ applications. \Dthreads{}
+not only prevents semantic errors like race conditions and deadlocks,
+but also can enhance performance by eliminating false sharing of cache
+lines. \dthreads{} leverages virtual memory and process isolation,
+combined with a deterministic commit protocol, to ensure robust
+deterministic execution with low runtime overhead. Experimental
+results show that \dthreads{} substantially outperforms a
+state-of-the-art deterministic runtime system, and often matches---and
+occasionally exceeds---the performance of \pthreads{}.
+\end{abstract}
+
+\category{D.1.3}{Programming Techniques}{Concurrent Programming--Parallel Programming}
+\category{D.2.5}{Software Engineering}{Testing and Debugging--Debugging Aids}
+
+\terms
+Design, Reliability, Performance
+
+\keywords
+Deterministic Multithreading, Determinism, Parallel Programming, Concurrency, Debugging,
+Multicore
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+\input{introduction}
+
+\section{\Dthreads{} Architecture}
+\input{dthreads-architecture}
+
+\section{Discussion}
+\input{discussion}
+
+\section{Evaluation}
+\input{evaluation}
+
+\section{Related Work}
+\input{related-work}
+
+\section{Future Work}
+\input{future-work}
+% eliminate global lock
+% possibly adopting a page-ownership protocol as used by ...
 
 \section{Conclusion}
+\input{conclusion}
 
-Comparing to previous deterministic multithreading, 
-\Dthreads{} provides a stable deterministic multithreading even in
-the faces of data races: executions of a program always behave the same, even with different inputs or 
-on different hardware, as long as the synchronization order is staying the same. \Dthreads{} 
-dramatically improves the performance of the state-of-the-art (CoreDet~\cite{coredet}) by
-3.4$\times$ without resorting to any hardware change.
-In this work, \dthreads{} novelly implements a deterministic memory allocator, which can
-guarantee the determinsim even for programs with memory errors, such as buffer overflows.  
+{
+\bibliographystyle{abbrv}
+\bibliography{dthreads,emery}
+}
 
-However, \dthreads{} suffers from the same shortcoming as that of \sheriff{}: those programs
-with ad hoc synchronization may not work properly since \dthreads{} does not commit 
-those modifications of ad hoc synchronization, which needed by synchronization, 
-without explicit instrumention and annotation.
-\dthreads{} can also suffer the load imbalance problem of explicit synchronization 
-points of programs, 
-which can still guarantee the determinism but may compromise the performance.
-%\coreDet{}:. 
-
-% Why it is performing well.
-% Deterministic memory allocation. 
-% What is the shortcoming: can't work for the ad-hoc synchronization. The performance may encounter the 
-% load-balance problem. 
+\end{document}
