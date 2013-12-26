@@ -1,0 +1,46 @@
+
+
+\subsection{Dynamic Analysis}
+Generally, there are two types of approaches of detecting memory errors: static analysis and dynamic analysis. Static analysis normally reports many false positives~\cite{Wagner00afirst, CSSV}. Dynamic analysis is widely used because of its accuracy and precision, which never reports any false positive and can pinpoint the line of code with memory errors. We only present the related work in dynamic analysis. 
+
+Dynamic analysis can be classified into the following categories based on monitoring technique. 
+% What is the basic idea? What is the main strength? What is the main problem: Generality, Performance, Accuracy, Precision?
+
+\subsubsection{Dynamic Instrumentation} 
+A larger number of dynamic detection tools are utilizing dynamic instrumentation technique, including many commercial tools. A lot of widely used approaches falls into this category, including Valgrind Memcheck~\cite{overflow:valgrind}, Dr.Memory~\cite{overflow:drmemory}, Purify~\cite{overflow:purify}, Intel Inspector~\cite{overflow:inspector}, and Sun Discover~\cite{overflow:discover}.
+These detectors monitor the execution of programs leveraging on dynamic instrumentation engine, such as Pin~\cite{Pin}, Valrind~\cite{overflow:valgrind}, and DynamoRIO~\cite{DynamoRIO}. 
+They can detect different types of memory errors, including memory leak, memory use-after-free errors, uninitialized reads, and buffer overflows. Because they do not need a recompilation, they are more generalized than other types of tools. Because of using dynamic instrumentation, they all have performance problems caused by dynamic instrumentation. According to Bruening et.al, Valgrind introduces more than $20\times$ performance overhead and Dr. Memory are running $10\times$ slower~\cite{overflow:drmemory}. 
+
+
+\subsubsection{Static Instrumentation}
+Mudflap~\cite{overflow:Mudflap} instruments pointer and arrays in compilation time, in order to fight against buffer overflows, invalid hep usage and memory leakage. CCured~\cite{overflow:ccured}, LBC~\cite{overflow:lbc} and Baggy- Bounds-checking~\cite{overflow:Baggy} instrument code in compilation time, while using static analysis to help reducing performance overhead. Insured++ is a commercial tool to detect memory leakage, memory corruption and memory use-after-free errors, which relies both on compilation instrumentation and binary instrumentation~\cite{overflow:Insure++}. AddressSanitizer is the state-of-the-art tool in this field~\cite{AddressSanitizer}. It relies on compilation to add memory checks and add canaries for global variables. AddressSanitizer interposes memory allocation to add canary around heap objects, delays memory deallocation using a quarantine list and does memory bounds-of-check on every instrumented instructions. These approaches achieves much better performance by avoiding significant performance overhead introduced by dynamic instrumentation. However, these approaches are less generalized than those tools built on dynamic instrumentation. For instance, compiling based approaches can not detect memory errors caused by code without instrumentation, e.g. library calls or legacy code. The state-of-the-art tool, AddressSanitizer, still imposes over 30\% performance overhead according to our evaluation in Section~\ref{sec:perf}. 
+
+\subsubsection{Interposition}
+\begin{comment}
+There are approaches relying on library interposition to detect certain memory errors caused by some library functions.
+ such as buffer overflows caused by memcpy, strcpy ~\cite{Libsafe, HeapShield, LibsafePlus}. They are interposing specific library functions and checks bound of objects in these functions. However, they are far from a generalized tool because they can not detect errors caused by pointer operations and they can not detect other types of memory errors, such as use-after-free errors and memory leaks. 
+\end{comment}
+
+BoundsChecker interposes Windows heap library calls and detects memory leaks, use-after-free errors and buffer overflows~\cite{BoundsChecker}. We can not compare the performance against BoundsChecker since they only work for Windows system. Electric Fence~\cite{electricfence} and Duma~\cite{duma} intercept memory allocations and deallocations and utilize page protection to detect memory use-after-free errors and buffer overflows. However, significant memory overhead and performance overhead prevents their usage in deployment environment. There are other detection tools by intercepting memory allocation and deallocations, including memory leak detection tools ~\cite{Hound, SWAT,Sleigh}, buffer overflow detection tools~\cite{exterminator, Dlmalloc, GuardMalloc, overflow:Cruiser}, and dangling pointer tools~\cite{Undangle}. \doubletake{} falls into the category of ``Interpostion''.  
+ 
+\subsection{Record-and-Replay}
+
+% Record-and-Replay has been researched for many years. There are a lot of works in this field.
+Record-and-replay systems have been utilized in different fields, including software debugging~\cite{Triage, Flashback, OSDebug, RecPlay}, dynamic analysis~\cite{Aftersight, Speck}, and fault tolerance ~\cite{Bressoud:1995:HFT:224056.224058, Rx}. A lot of record-and-replay systems focuses how to reduce the performance overhead of recording~\cite{Respec, ODR, PRES, DoublePlay}. 
+
+Among those software debugging techniques, Flashback is a OS extension which helps debugging software bugs~\cite{Flashback}. It uses the shadow process to replicates the execution of a process, which is different with \doubletake{}. It also records the results of system calls in order to facilitate deterministic replay. But they handled system calls differently with \doubletake{}. For instance, they simply record the results of file system related system calls, while \doubletake{} are checkpointing the file positions in the begin of an epoch. \doubletake{} avoids the recording overhead of file related system calls, thus achieving better performance. The most significant difference between Flashback and \doubletake{} is that Flashback is OS extension and do not target specific software bugs, while \doubletake{] is a preloading library and has been utilized to detect memory errors with an extremely low overhead. Triage provides  software failure diagnosis by mimic human's debugging procedure~\cite{Triage}. Triage can only trigger the diagnosis when an failure is observed, which may miss some potential software bugs. TTVM uses the record-and-replay to debug operating systems's errors~\cite{OSDebug}. 
+
+Record-and-replays systems used in dynamic analysis includes Aftersight and Speck. Aftersight decouples the normal execution by recording all inputs to virtual machine and replaying them in a separate platform~\cite{Aftersight}. We can only used Aftersight in the virtual machine environment, thus cannot be used to analyze software bugs in real production environment when there is no need to use virtual machine. Speck is typically used in security checks, including sensitive data analysis, virus scanning, and taint propagation, which has completely different target with \doubletake{}~\cite{Speck}. 
+
+ 
+\begin{comment}
+In order to reduce the overhead, LBC do not check pointer arithmetic operations, but only on pointer
+dereferences. This could cause some false negatives, which those overflow is caused by pointer arithmetic operations. 
+LBC is very impressive in its memory overhead, only 8.3\% overhead.
+LBC do not given any details whether they detect those out-of-bounds errors in their most efficient
+mode or not, since this can be misleading because different mode have significant difference on performance.
+
+Baggy~\cite{overflow:Baggy} and WIT~\cite{overflow:WIT}.
+
+\end{comment}
+

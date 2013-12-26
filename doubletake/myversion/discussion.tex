@@ -1,0 +1,13 @@
+\subsection{Limitations of Applications}
+\doubletake{} implements three detection tools for heap buffer overflows, use-after-free errors, and memory leaks.  They are utilized to demonstrate \doubletake{}'s effectiveness, instead of providing a complete solution for these memory errors. 
+
+The heap overflow detection tool cannot detect those non-continuous buffer overflows. If a buffer overflow does not corrupt those canaries, it cannot be detected by \doubletake{}. Memory leak detection can also miss some memory leaks. If a global variable is still pointing to a memory object, this object is not considered to be leaked even if this program do not access it at all. For performance reason, \doubletake{} only fills canaries to a freed object up to 128 bytes. For a large object, if a use-after-free error writing to a word with offset larger than 128 bytes, this use-after-free error can not be detected by \doubletake{}. 
+
+Also, \doubletake{} can only detect those memory errors with evidence. It is impossible for \doubletake{} to detect those errors caused by out-of-bounds reads, read after free errors. 
+ 
+\subsection{Future Work} 
+One future work is to extending \doubletake{} for more usage cases. For example, based on reachability information, it is easy for \doubletake{} to find some dangling pointers, where an object has been freed but global variables still has a pointer pointing to them.
+
+Another future work is to design a new memory allocator for detecting use-after-free errors more efficiently. Large heap objects can be allocated from a different heap, thus there is no need to fill canaries on those freed objects. We can utilize  memory protection mechanism to detect those uses on large objects.
+
+We also plan to incorporate the \doubletake{} framework with \texttt{gdb} debugger in order to fully utilize the lightweight recording and deterministic replay mechanism of \doubletake{}. Some software bugs, e.g. relating to timing, may disappear when a program is restarted. Thus, based on \doubletake{}'s deterministic replay,  \texttt{gdb} can always repeat the occurrence of software bugs. It is also possible to provide an interactive debugging system without actually using \texttt{gdb}. 

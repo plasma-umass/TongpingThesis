@@ -1,0 +1,76 @@
+\label{sec:applications}
+
+\doubletake{} implements three important applications based on its lightweight dynamic analysis framework. 
+Those applications are implemented in a best-effort way to show the efficiency of our framework.
+They are not targeted for a complete and novel solution for these problems, and most of mechanisms are borrowed from previous work. 
+
+For these applications, \doubletake{} runs a program at full speed during an epoch and finds evidence of possible memory problems at the end of each epoch. 
+If \doubletake{} detects memory problems, it rolls back the program and re-execute it in order to collect detailed information of problems. Different applications has different implementations, which are discussed in more detailed 
+in the following. 
+
+\subsection{Detection of Heap Buffer Overflows}
+\label{sec:overflow}
+Buffer overflows can greatly impact programs' robustness and security. When a program has buffer overflows, a program can exit unexpectedly with segmentation fault errors or other errors. Even worse, overflows can be maliciously exploited to attack the machine, running a program with buffer overflows. 
+Buffer overflows are still one of dominant errors even after decades of research in this field. In 2012, four types of the CWE/SANS "Top 25 Most Dangerous Software Errors" and  over one-third vulnerabilities of 1818 high severity problems reported from NIST are related to buffer overflows~\cite{overflow:lbc, overflows2, overflows1}. Heap buffer overflows is one of most common problems in buffer overflows. 
+
+\subsubsection{Detection}
+To detect heap buffer overflows, \DoubleTake{} puts canaries before and after actual heap objects in normal executions ~\cite{overflow:lbc, AddressSanitizer}. At the end of each epoch, \doubletake{} verifies integrities of canaries by traversing the bitmap, which marks the placement of canaries and discussed in Section~\ref{sec:canaries}.  
+Corrupted canaries indicates heap buffer overflows. To detecting those one-byte overflows, \doubletake{} embeds actual size information of objects into headers of objects and places byte-based canaries for non-aligned objects.
+
+\subsubsection{Reporting}
+\label{sec:overflowreport}
+When a program is found to have heap overflows, \doubletake{} rolls back the execution and re-executes this program.
+To precisely identifying the instruction responsible for buffer overflows, \doubletake{} installs watch points at the address of corrupted canary before re-execution, which is discussed in Section~\ref{sec:watchpoints}.
+When the program is re-executed, any instruction that writes to this address will trigger a debug trap (resulting in a SIGTRAP signal). \doubletake{} then reports the call site of trapped instructions, helping to pinpoint the exact source location where the buffer overflow occurred.
+  
+\subsection{Detection of Memory Leakage}
+\label{sec:leak}
+Memory usage inefficiency can greatly reduce programs performance and availability. A system with memory leaky programs can greatly degrade responsiveness if some programs has to be paged out, caused by excessive memory consumption by leaky programs. Memory leaks grows memory consumption over time, which can make a program running slower and slower, or even unresponsively in the end. Memory leakage is still one of common classes of reported bugs.
+
+\subsubsection{Detection}
+\doubletake{} detects memory leakage using the same marking mechanism as conservative garbage collection ~\cite{Wilson:1992:UGC:645648.664824}. Starting from roots (globals, stack, and registers), \doubletake{} computes the reachability of all heap objects. Any unreachable object that has not been freed must be leaked.
+
+More specifically, \doubletake{} checks all values of globals, stack and registers and adds a value to a {\it root list} if a value falls into the range of the allocated heap.
+Then \doubletake{} utilizes a Breadth-First-Search algorithm to verify each value of the {\it root list}. 
+If a value is a valid address inside an actual heap object and this object is not checked, \doubletake{} checks all possible values inside this heap objects and inserts those values 
+in the range of the allocated heap into {\it root list}. 
+After a heap object is verified, it is marked as a reachable object by setting the least significant bit of block size in its object header. Since every heap object inside \doubletake{} has \texttt{power of 2} size, we can re-utilize the least significant bit of block size. 
+
+\begin{comment}
+For those values falling into the middle of a heap object, \doubletake{} leverages the same bitmap of canaries to locate the starting address of this object when a value is not the starting address of an object. 
+\end{comment}
+
+In the end, \doubletake{} traverses the whole heap to find leaked objects, which can not be reachable and are not freed. 
+It is easy to identify whether an object is freed or not in \doubletake{}. Because its customized memory allocator has embedded actual size into object headers, \doubletake{} always set its actual size to 0 when an object is freed. 
+During the check procedure, \doubletake{} clears the least significant bit of all objects. 
+%\doubletake{} can also identify
+%reachable memory that has been freed, which could potentially
+%lead a use after free violation.
+
+\subsubsection{Reporting}
+\label{sec:leakreport}
+\doubletake{} uses re-execution to find the allocation site for a leaked heap object. Re-execution proceeds as normal (dicussed in Section~\ref{sec:re-execution}), with an added check in each \texttt{malloc()}.
+When a memory allocation matches the actual size and the address of any leaked heap object, \doubletake{} reports its call stack, obtained using \texttt{backtrace}. 
+
+\subsection{Detection of Use-after-free Errors}
+\label{sec:danglingpointer}
+Memory use-after-free errors occur when an application continue to use pointers, where those objects pointing by them have been deallocated.  
+Use-after-free errors causes unexpected behavior of programs execution if an de-allocated object is reused for other purposes, which is hard to reason about. 
+
+\subsubsection{Detection}
+To detect memory use-after-free errors, \doubletake{} delays memory re-usage for freed objects by putting them into a quarantine list, same as AddressSanitizer does ~\cite{AddressSanitizer}. 
+Those freed objects in the quarantine list are not be re-allocated until the total size of freed objects in the quarantine list are larger then a pre-defined threshold or the quarantine list is full.
+
+In order to find evidence of memory use-after-free errors, 
+\doubletake{} fills the first 128 bytes of an object with canaries. 
+
+Before an object is returned back to the program heap or at the end of epoch, all canaries are checked to find memory writes on canaries. Same as the detection of buffer overflows, a corrupted canary indicates a use-after-free memory error and must be reported to user. 
+
+\subsubsection{Reporting}
+When an object has use-after-free memory errors, 
+\doubletake{} re-executes this program to find out the allocation and deallocation site of of this object and instructions actually over-writing the canaries.
+To obtain the allocation and deallocation site, 
+\doubletake{} leverages the same mechanism used in
+the detection of memory leakage, discussed in Section~ref{sec:leakreport}.
+To find out instructions writing a freed object, 
+\doubletake{} installs hardware watch points on those violating addresses, which shares the same mechanism as the overflow detection (Section~\ref{sec:overflowreport}).
