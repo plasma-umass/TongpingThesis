@@ -2,11 +2,11 @@
 
 \begin{figure}[!ht]
 \fbox{
-\subfigure{\lstinputlisting[frame=none,boxpos=t]{fig/mainthread.example.pseudocode}}
+\subfigure{\lstinputlisting[frame=none,boxpos=t]{dthreads/figure/mainthread.example.pseudocode}}
 \hspace{10pt}
-\subfigure{\lstinputlisting[numbers=none,frame=none,boxpos=t]{fig/thread1.example.pseudocode}}
+\subfigure{\lstinputlisting[numbers=none,frame=none,boxpos=t]{dthreads/figure/thread1.example.pseudocode}}
 \hspace{10pt}
-\subfigure{\lstinputlisting[numbers=none,frame=none,boxpos=t]{fig/thread2.example.pseudocode}}
+\subfigure{\lstinputlisting[numbers=none,frame=none,boxpos=t]{dthreads/figure/thread2.example.pseudocode}}
 }
 \caption{A simple multithreaded program with a race.\label{fig:sample}}
 \end{figure}
@@ -114,7 +114,7 @@ Memory allocations are issued from the shared heap memory using a scalable per-t
 
 \begin{figure}
 {\centering 
-\includegraphics[width=3.25in]{fig/phase}
+\includegraphics[width=3.25in]{dthreads/figure/phase}
 \caption{An overview of \dthreads{} phase. Program execution with \dthreads{} parallel and serial phases.\label{fig:phase}}
 }
 \end{figure}
@@ -222,7 +222,7 @@ In the end of serial phase, we still needs to wait at fence in order to entering
 \subsubsection{Commit Protocol}
 \begin{figure}
 {\centering
-\includegraphics[width=3.25in]{fig/architecture-diagram}
+\includegraphics[width=3.25in]{dthreads/figure/architecture-diagram}
 \caption{An overview of \dthreads{} execution.\label{fig:architecture}}
 }
 \end{figure}

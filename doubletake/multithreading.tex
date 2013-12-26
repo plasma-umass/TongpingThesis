@@ -209,13 +209,6 @@ This implies that a synchronization event belongs to two lists,
 a list for all synchronizations of this synchronization variable (SyncVariableList) and 
 a list for all synchronizations in a thread (ThreadSyncList). 
 
-\begin{figure}[!ht]
-{\centering
-\subfigure{\lstinputlisting[numbers=none,frame=none,boxpos=t]{figure/lockunlock.pseudocode}}
-\caption{Lock and unlock of reproduction runs. \label{fig:lockunlock}}
-}
-\end{figure}
-
 Reproducing synchronizations involves in manipulating these two lists using 
 {\it sempaphore replay}, similar to TERN ~\cite{TERN}.
 We listed the pseudocode of ``lock'' of reproduction runs in Figure~\ref{fig:lockunlock}.

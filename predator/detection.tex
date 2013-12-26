@@ -30,7 +30,7 @@ It traverses all functions one by one and searches for memory accesses to global
 can always be turned on when necessary.
 
 The instrumentation pass is placed at the very end of the LLVM
-optimization passes so that only those memory accesses surviving all previous LLVM optimization passes are instrumented.  This technique is similar to the one used by AddressSanitizer~\cite{Addresssanitizer}.
+optimization passes so that only those memory accesses surviving all previous LLVM optimization passes are instrumented.  This technique is similar to the one used by AddressSanitizer~\cite{AddressSanitizer}.
 
 \subsection{Runtime System}
 \label{sec:runtime}
@@ -118,7 +118,7 @@ For every access, \Predator{} needs to lookup the corresponding cache line's met
 in order to store detailed information or update access counters. Because this operation is so frequent,
  lookups need to be very efficient.
 Like 
-AddressSanitizer~\cite{Addresssanitizer} and other systems~\cite{qinzhaodetection,Valgrind},
+AddressSanitizer~\cite{AddressSanitizer} and other systems~\cite{qinzhao,Valgrind},
 \Predator{} uses a shadow memory mechanism to store metadata for every piece of application data. 
 Thus, \Predator{} can compute and locate corresponding metadata directly via address arithmetic.
 

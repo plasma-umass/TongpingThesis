@@ -9,7 +9,7 @@ Our evaluation measure the memory and runtime overhead of \doubletake{}, and the
 
 \begin{figure*}[!ht]
 	\begin{center}
-		\includegraphics[width=6.5in]{figure/perf}
+		\includegraphics[width=6.5in]{doubletake/figure/perf}
 	\end{center}
 	\caption{This figure shows the runtime overhead of \doubletake{} (OD - Heap Overflows Detection, LD - Leak Detection, \doubletake{} - with three detections enabled) and AddressSanitizer, normalized to each benchmark's original execution time. 
 %Overhead for Valgrind is reported in Table~\ref{table:valgrind} because the results do not fit on this graph.
@@ -33,7 +33,7 @@ From the figure, we also observe that \doubletake{} introduces more than 7\% per
 
 \begin{figure}
 \begin{center}
-\includegraphics[width=3.4in]{figure/perfdetails}
+\includegraphics[width=3.4in]{doubletake/figure/perfdetails}
 \end{center}
 \caption{
 \doubletake{} performance overhead for different applications.
@@ -95,7 +95,7 @@ Total & 7386 & 16678 & 13906 \\
 
 \begin{figure*}
 \begin{center}
-\includegraphics[width=6.5in]{figure/memory}
+\includegraphics[width=6.5in]{doubletake/figure/memory}
 \end{center}
 \caption{
 Memory overhead of \doubletake{} and AddressSanitizer.
