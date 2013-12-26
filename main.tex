@@ -91,10 +91,15 @@
 %\documentclass{umthesis}          % for Ph.D. dissertation or proposal
 % \documentclass[thesis]{umthesis}  % for Master's thesis
 
-\usepackage{subfigure}
+\usepackage{color}
 \usepackage{listings}
-\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{comment}
+\usepackage{graphicx, subfigure}
 \usepackage{url}
+\usepackage{pifont}% http://ctan.org/pkg/pifont
 
 %\lstset{ %
 % language=C,                    % choose the language of the code
@@ -137,6 +142,8 @@
 \newcommand{\DoubleTake}{\textsc{DoubleTake}}
 \newcommand{\doubletake}{\textsc{DoubleTake}}
 \newcommand{\pthreads}{\texttt{pthreads}}
+\newcommand{\cmark}{\ding{52}} %51 or 52
+\newcommand{\xmark}{\ding{53}}% 53, 54, 55, 56
 
 
 \begin{document}
@@ -296,7 +303,6 @@ underflows without adding perceptible performance overhead.
 \chapter{\Predator{}: Predictive False Sharing Detction}
 \input {predator/main}
 
-\chapter{Proposed Work: Locate Memory Errors Efficiently and Precisely}
 
 %%
 %% Beginning of back matter

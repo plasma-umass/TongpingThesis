@@ -30,16 +30,6 @@ Berger et al.\ describe Hoard, a scalable memory allocator that can reduce the p
 a single heap object: the latter appears to be the primary source of real false sharing problems.
 
 \subsubsection{False Sharing Detection and Prevention}
-\sheriff{}~\cite{sheriff} provides two tools to handle false sharing based on its ``threads-as-processes'' framework.
-\Sheriff{}'s detection tool report false sharing accurately and precisely with only $20\%$ performance overhead.
-However, it can only detect write-write false sharing for those programs using \pthreads{} library. It can also break programs that communicate across different threads with stack variables or self-defined synchronizations. These shortcomings greatly limit \Sheriff{}'s usage on real-world applications.  
-\Predator{} can detect all kinds of false sharing and has no limitations on applications. \Predator{} has been utilized to find actual false sharing in real applications, including \texttt{MySQL} and the \texttt{Boost} library.
-
-\Sheriff{}'s prevention tool prevents false sharing from happening. Unfortunately, it only improves performance for programs with a small number of synchronizations. 
-In programs with a large number of synchronizations, the overhead imposed by \Sheriff{} could lead to performance degradation.
-%Both \SheriffDetect{} and \SheriffProtect{} assumes the correct usage of \pthreads{} APIs,  
-%so they may not work correctly for those programs having ad-hoc
-%synchronizations (e.g., flag synchronizations) or using stack variables to communicate among threads.
 
 Plastic leverages the sub-page granularity memory remapping facility provided by the Xen hypervisor to detect and tolerate false sharing automatically~\cite{OSdetection}. However, the sub-page memory remapping mechanism is not currently supported by most existing operating system, reducing its generality. In addition, Plastic cannot pinpoint the exact source of false sharing.  
 In order to utilize Plastic's prevention tool, a program has to run on the Xen hypervisor, limiting the applicability of their prevention technique.
