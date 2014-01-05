@@ -1,22 +1,30 @@
 \label{sec:overview}
 
-\doubletake{} is a general framework to improve the performance of dynamic analyses. Program execution is divided into epochs at irrevocable system calls, discussed in Section~\ref{sec:normal_execution}. Inside each epoch, \doubletake{} allows a program to run at full speed, with very minimum recording overhead. \doubletake{} takes a snapshot of program state at the beginning of each epoch, and checks program state for evidence of an error when the epoch ends. When an error is detected, \doubletake{} rolls back to the previous program snapshot and replays execution to reproduce the error exactly. During execution phase, \doubletake{} can use higher-overhead mechanisms to pinpoint the exact cause of the error.
+\begin{figure}[!t]
+\begin{center}
+\includegraphics[width=3.3in]{doubletake/figure/overview}
+\end{center}
+\caption{
+Overview of \doubletake{}: execution is divided into epochs at the boundary of irrevocable system calls. 
+\label{fig:overview}}
+\end{figure}
 
-\CC{We need to describe the kinds of errors that \doubletake{} can detect (monotonic).}
+\doubletake{} aims to reduce the performance overhead of dynamic analyses for memory errors sharing the monotonicity: the evidence of an error is persistent and can be detected after-the-fact. As described in Figure~\ref{fig:overview}, the execution of a program is divided into epochs at irrevocable system calls, discussed in Section~\ref{sec:normal_execution}. Inside each epoch, \doubletake{} allows a program to run at full speed, with the support of checkpointing and very minimum recording overhead. \doubletake{} only checks for evidence of an error when an epoch ends. If an error is detected, \doubletake{} rolls back to the most recent checkpoint and re-execute the program to pinpoint the error.  During the re-execution phase, \doubletake{} can use higher-overhead mechanisms to pinpoint the exact cause of the error. 
 
-To demonstrate \doubletake{}'s effectiveness, we have implemented detection tools for heap buffer overflows, use-after-free errors, and memory leaks. Section~\ref{sec:applications} describes the implementation of each detection tool. \doubletake{} provides four core mechanisms to for use by detection tools:
+Based on this framework, we have implemented three detection tools for heap buffer overflows, use-after-free errors, and memory leaks, which are described in detail in Section~\ref{sec:applications}. 
+
+\doubletake{} employs the following core mechanisms:
+
+\paragraph{Efficient Recording.}
+At the beginning of every epoch, \doubletake{} saves a snapshot of program registers, and all writable memory. The epoch ends when the program attempts to issue an irrevocable system call, which is described in Section~\ref{} \CC{here}. \doubletake{} also records the order of thread synchronization operations to support re-execution of parallel programs. \doubletake{} records minimal system state at the beginning of each epoch (like file offsets), which allows system calls that modify this state to be undone if re-execution is required. As a result, most programs require very few epochs and program state checks. We describe the details of each application's state checks in Section~\ref{sec:applications}.
 
 \paragraph{Precise Replay.}
 During re-execution, \doubletake{} ensures that all observable system state, system call results, and memory allocations will be the same from the original run. System calls that cannot be replayed, called irrevocable system calls, must be issued at the end of an epoch after detection tools have verified that no errors have occurred. Actually, those system calls consists of the boundary of epochs, which are discussed in Section~\ref{sec:normal_execution}. In practice, most system calls can easily be replayed by handling appropriately. This ensure that most programs run very few integrity checks, and overhead remains low when errors are not detected.
 
 \paragraph{Custom Heap Allocator.}
-\doubletake{} replaces the default heap allocator with a BiBOP-style memory allocator, built on HeapLayers~\cite{heaplayers}. \DoubleTake{} pre-allocates a fixed size of memory from its underlying operating system using \texttt{mmap} system calls and satisfies memory allocations from this block of memory. In the heap, all heap objects have the block size of {\it power of $2$}, using an object header to mark the size of this block and this actual object. There is no split and merge operation on heap objects. If the size of an allocation is less than {\it power of 2}, \DoubleTake{} allocates an object with the size of next {\it power of 2}. \doubletake{} interposes memory allocation and deallocations, handling appropriately for different detection tools. To detect memory use-after-free errors, it can defer reuse of freed memory. To detect heap buffer overflow, it puts canaries around actual heap object. 
 
-\paragraph{Heap Canaries.}
-Canary was first proposed by StackGuard~\cite{StackGuard} to find stack smashing problems by placing a canary word before the return address on stack. Those attempts to overwrite the return address should corrupt the canary word at first. Canaries are borrowed to detect buffer overflow ~\cite{overflow:purify}. They are initialized to a special value in the beginning so that modifications of those values
-indicates the problems. Detection tools can place canary values anywhere in heap memory. \doubletake{} uses a compact data structure to track the locations of canary values, and can check for canaries that have been overwritten. Buffer overflow detection places canary values between heap objects to detect out-of-bounds writes, and use-after-free detection fills freed objects with canaries to detect writes through dangling pointers.
+\doubletake{} replaces the default heap allocator with a BiBOP-style memory allocator, built on HeapLayers~\cite{heaplayers}. \DoubleTake{} pre-allocates a fixed size of memory from its underlying operating system using \texttt{mmap} system calls and satisfies memory allocations from this block by interposing all memory allocation and deallocations. Using the custom memory allocators avoids a big number of sbrk() or mmap() system calls caused by the default memory allocator. In the heap, all heap objects have the block size of {\it power of $2$}, using an object header to mark its status and size information. There is no split and merge operation on heap objects. If the size of an allocation is less than {\it power of 2}, \DoubleTake{} allocates an object with the size of next {\it power of 2}. 
 
-\paragraph{Watchpoints.}
-Watch point mechanism relies on hardware debug registers to monitor memory accesses on specific addresses. Previous work has used this mechanism for their specific targets ~\cite{fastboundschecking, Kivati}. The main target of debug registers is to support software debuggers, e.g. gdb. A small number of watchpoints are available on modern architectures (four on x86). Each watchpoint can be configured to pause program execution when a specific byte or word of memory is accessed. \doubletake{} allows detection tools to set hardware watchpoints before re-execution. Heap Overflow detection tool can use watchpoints to find the instruction(s) responsible for overwriting a canary value.
+
 
 

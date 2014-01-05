@@ -1,60 +1,77 @@
 \label{sec:implementation}
 
-This section describes the implementation of \doubletake{}, organized by the phases
-shown in Figure~\ref{fig:phases}. 
+This section describes the implementation of \doubletake{}, organized by the phases shown in Figure~\ref{fig:phases}. 
+
 % we should say why we have normal execution and re-execution.
-Section~\ref{sec:normal_execution} firstly describes the procedure inside normal execution, which
-is the common path for all programs.
-Then it describes how to rollback and re-execute a program in Section~\ref{sec:re-execution}, when
-there are memory errors detected.
+\doubletake{} divides the execution of a program to different epochs at the boundary of irrevocable system calls. At each epoch, \doubletake{} takes a snapshot of the program in the beginning and lets an application run at full speed until irrevocable system calls (in the end of this epoch), while recording some of the program's operations to facilitate re-execution. Then \doubletake{} examines the state for evidence of possible memory errors. 
+If there is no evidence of errors, \doubletake{} issues this system call and enters into next epoch. If there is an error detected, \doubletake{} rolls back the program to the most recent checkpoint and re-executes the program to locate the exact cause of this error. 
 
-\begin{figure*}[t] {
-	\centering
-	\includegraphics[width=6.5in]{doubletake/figure/overview}
-	\caption{\DoubleTake{} diagram. \label{fig:phases}}
-	}
-\end{figure*}
-
-\subsection{Normal Execution}
-\label{sec:normal_execution}
-
-% TODO: Fill in irrevocable system call
-\doubletake{} breaks the execution of a program into multiple epochs at irrevocable system calls.
-In the beginning of an epoch, \doubletake{} takes a snapshot of the program state. 
-During an epoch, \doubletake{} records the program's operations to facilitate re-execution. 
-An epoch ends when the program attempts to issue an irrevocable system call, such as \texttt{fork}. 
-Before the system call is issued, \doubletake{} checks the program state for errors. 
-When no error is detected, \doubletake{} will issue the irrevocable system call and start a new epoch.
-If an error is detected, \doubletake{} switches to re-execution mode 
-(described in Section~\ref{sec:re-execution}) to gather additional information about memory errors. 
-
-\subsubsection{Starting an Epoch}
+\subsubsection{Epoch Start}
 {\em Snapshot}. 
 At the beginning of every epoch, \doubletake{} take a snapshot of the current program state 
-so that we can rollback to this state if there are some errors detected at the end of the current epoch.
-A snapshot includes the state of registers (obtained using \texttt{getcontext()}),
+so that we can rollback to this state if there are some errors detected at the end of the current epoch. A snapshot includes the state of registers (obtained using \texttt{getcontext()}),
 and all writable memory, including the globals, the stack and the program heap. 
 Read-only memory, such as text segments of a program and libraries, does not need to 
 be saved in the snapshot. \doubletake{} analyzes the Linux file \texttt{/proc/self/map} 
-to identify the ranges of different memory mappings, including the globals and the stack.
-It knows the range of the program heap because of using a customized memory allocator, which is discussed in
-Section~\ref{sec:allocator}.  
+to identify the ranges of the globals and the stack. Because of using a customized memory allocator, \doubletake{} knows the range of the heap. 
 
-To snapshot, it first saves the globals of this program and different libraries, 
-and then the heap and the stack. 
-In the end, it calls \texttt{getcontext} of \texttt{glibc} library to save its execution context.
+To save the snapshot, \doubletake{} saves the globals, heap, and stack before it calls \texttt{getcontext} to save its execution context. Also, \doubletake{} records file positions of all opening files. This lets programs issue \texttt{read} and \texttt{write} system calls without 
+ending the current epoch. \doubletake{} uses the saved memory state, register state and file positions to ``undo'' an epoch if errors are found in the end of the current epoch. 
 
-{\em File Positions}. \doubletake{} records file positions of all opening files
-in order to reduce the number of epochs in a program, 
-which has been discussed in Section~\ref{sec:syscall}.
-For a normal file, \doubletake{} calls \texttt{lseek} to acquire its file position.
-For a file opened by \texttt{fopen}-like library calls,
-\doubletake{} also saves its corresponding stream additionally.
-
-\subsubsection{Executing an Epoch}
+\subsubsection{Inside An Epoch}
 \label{sec:inepoch}
-Inside an epoch, \doubletake{} intercepts those library functions involved in system calls 
-and handles correspondingly according to the discussion of Section~\ref{sec:syscall}.
+Inside an epoch, \doubletake{} lets a program execute normally. But \doubletake{} interposes  library functions involving in system calls and heap allocations in order to set tripwires and support re-execution.
+
+\paragraph{System Calls.}
+
+\label{sec:syscall}
+
+% Why we need to care about system calls. Because some system calls are irrevocable.
+% However, not all IO are irrevocable. For example, if a file reads twice, as long as 
+% it returns the same result. We do not need to undone the results of IO operations. 
+\doubletake{} ends epochs on irrevocable system calls: the execution before
+and after irrecocable system calls belong to different epochs.
+Irrevocable here has a different meaning as that in transactional memory programming.
+In transactional memory programming, irrevocable actions include IO and system calls whose
+effect cannot be rollbacked or completely invoked in user space~\cite{Irrevocabletrans}.
+\doubletake{} relaxes the definition of irrevocable: only the results of system calls cannot be
+reproduced are considering to be irrevocable system calls.
+System calls are classified to the following types.
+
+\paragraph{Repeatable system calls} do not modify system state, and will always return the same result.
+This category includes \texttt{sleep}, \texttt{pause}, and system calls to query system's state, e.g. \texttt{getpid()}, \texttt{fstat} and \texttt{stat}.
+\doubletake{} does not need any special handling for these system calls.
+
+\paragraph{Recordable system calls} may return different results if they are re-executed.
+\doubletake{} records the result of these system calls.
+During re-execution, \doubletake{} will simply return the saved result
+instead of re-executing the system call.
+This category includes \texttt{mmap()}, \texttt{gettimeofday()}, \texttt{time()}, and \texttt{clone()}.
+
+\paragraph{Checkpointable system calls} modify system state,
+but \doubletake{} can save this state beforehand and restore it prior to re-execution.
+Most of file IO related system calls fall into this category.
+For example, the \texttt{write()} system call can modify the contents of a file and moves the
+file positions inside operating system.
+They can be treated as irrevocable system calls, but that can greatly affect performance
+
+For example, the \texttt{write()} system call can modify the contents of a file and moves the
+file positions inside operating system.
+They can be treated as irrevocable system calls, but that can greatly affect performance
+because of intensive usages in applications.
+\doubletake{} saves those file positions of openning files in the beginning of each epoch and
+recovers those file positions before re-execution.
+%Because \texttt{read()} and \texttt{write()} can be used in socket communications, which is considered
+%as irrevocable system calls, \doubletake{} checks whether those file descriptors are related to 
+%actual files. If they are invoked on actual files, there is no other operation on those file related system calls.  
+
+\paragraph{Delayable system calls} will irrevocably change program state, but can safely
+be delayed until the end of the current epoch.
+\doubletake{} delays all calls to \texttt{munmap()} and \texttt{close()}.
+
+\paragraph{Irrevocable system calls} cannot be replayed. \doubletake{} must end the current epoch
+before these system calls are allowed to proceed. A system call not belonging to previous categories
+can be conservatively treated as an irrevocable system call.
 
 For checkpointable system calls, e.g., \texttt{read} and \texttt{write}, since they can 
 also be called in socket communications, \doubletake{} has to check whether they 
