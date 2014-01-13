@@ -1,133 +1,96 @@
 \label{sec:implementation}
 
-This section describes the implementation of \doubletake{}, organized by the phases shown in Figure~\ref{fig:phases}. 
+This section describes the implementation of \doubletake{}, organized by the phases shown in Figure~\ref{fig:overview}. 
 
 % we should say why we have normal execution and re-execution.
 \doubletake{} divides the execution of a program to different epochs at the boundary of irrevocable system calls. At each epoch, \doubletake{} takes a snapshot of the program in the beginning and lets an application run at full speed until irrevocable system calls (in the end of this epoch), while recording some of the program's operations to facilitate re-execution. Then \doubletake{} examines the state for evidence of possible memory errors. 
 If there is no evidence of errors, \doubletake{} issues this system call and enters into next epoch. If there is an error detected, \doubletake{} rolls back the program to the most recent checkpoint and re-executes the program to locate the exact cause of this error. 
 
-\subsubsection{Epoch Start}
+\subsection{Epoch Start}
 {\em Snapshot}. 
-At the beginning of every epoch, \doubletake{} take a snapshot of the current program state 
-so that we can rollback to this state if there are some errors detected at the end of the current epoch. A snapshot includes the state of registers (obtained using \texttt{getcontext()}),
-and all writable memory, including the globals, the stack and the program heap. 
-Read-only memory, such as text segments of a program and libraries, does not need to 
-be saved in the snapshot. \doubletake{} analyzes the Linux file \texttt{/proc/self/map} 
+At the beginning of every epoch, \doubletake{} take a snapshot of the current program state so that we can rollback to this state if there are some errors detected at the end of the current epoch. A snapshot includes the state of registers (obtained using \texttt{getcontext()}), and all writable memory, including the globals, the stack and the program heap. 
+Read-only memory, such as text segments of a program and libraries, does not need to be saved in the snapshot. \doubletake{} analyzes the Linux file \texttt{/proc/self/map} 
 to identify the ranges of the globals and the stack. Because of using a customized memory allocator, \doubletake{} knows the range of the heap. 
 
 To save the snapshot, \doubletake{} saves the globals, heap, and stack before it calls \texttt{getcontext} to save its execution context. Also, \doubletake{} records file positions of all opening files. This lets programs issue \texttt{read} and \texttt{write} system calls without 
 ending the current epoch. \doubletake{} uses the saved memory state, register state and file positions to ``undo'' an epoch if errors are found in the end of the current epoch. 
 
-\subsubsection{Inside An Epoch}
+\subsection{Inside an Epoch}
 \label{sec:inepoch}
-Inside an epoch, \doubletake{} lets a program execute normally. But \doubletake{} interposes  library functions involving in system calls and heap allocations in order to set tripwires and support re-execution.
+Inside an epoch, \doubletake{} lets a program execute normally. But \doubletake{} interposes  library functions involving in system calls and heap allocations in order to set tripwires and support re-execution. 
 
-\paragraph{System Calls.}
-
+\subsubsection{System Calls.}
 \label{sec:syscall}
 
-% Why we need to care about system calls. Because some system calls are irrevocable.
-% However, not all IO are irrevocable. For example, if a file reads twice, as long as 
-% it returns the same result. We do not need to undone the results of IO operations. 
-\doubletake{} ends epochs on irrevocable system calls: the execution before
-and after irrecocable system calls belong to different epochs.
-Irrevocable here has a different meaning as that in transactional memory programming.
-In transactional memory programming, irrevocable actions include IO and system calls whose
-effect cannot be rollbacked or completely invoked in user space~\cite{Irrevocabletrans}.
-\doubletake{} relaxes the definition of irrevocable: only the results of system calls cannot be
-reproduced are considering to be irrevocable system calls.
-System calls are classified to the following types.
+\input{doubletake/figure/syscalltable}
 
-\paragraph{Repeatable system calls} do not modify system state, and will always return the same result.
-This category includes \texttt{sleep}, \texttt{pause}, and system calls to query system's state, e.g. \texttt{getpid()}, \texttt{fstat} and \texttt{stat}.
-\doubletake{} does not need any special handling for these system calls.
+\doubletake{} allows most system calls to execute safely, maybe with efficient recording support, and ends epochs only at irrevocable system calls. Thus, \doubletake{} achieves very good performance by reducing the cost of snapshotting an epoch or checking the evidence of memory errors at the end of epochs. 
+System calls are classified to five different types, described in Table~\ref{table:syscalls}.
 
-\paragraph{Recordable system calls} may return different results if they are re-executed.
-\doubletake{} records the result of these system calls.
-During re-execution, \doubletake{} will simply return the saved result
-instead of re-executing the system call.
-This category includes \texttt{mmap()}, \texttt{gettimeofday()}, \texttt{time()}, and \texttt{clone()}.
+\emph{Repeatable system calls} do not modify system state, and will always return the same result during normal execution and  re-execution. \doubletake{} does not need any special handling for this type of system calls.
 
-\paragraph{Checkpointable system calls} modify system state,
-but \doubletake{} can save this state beforehand and restore it prior to re-execution.
-Most of file IO related system calls fall into this category.
-For example, the \texttt{write()} system call can modify the contents of a file and moves the
-file positions inside operating system.
-They can be treated as irrevocable system calls, but that can greatly affect performance
+\emph{Recordable system calls} may return different results if they are re-executed.
+\doubletake{} records the results of this type of system calls in the normal execution and replays the saved results in re-execution phase. 
 
-For example, the \texttt{write()} system call can modify the contents of a file and moves the
-file positions inside operating system.
-They can be treated as irrevocable system calls, but that can greatly affect performance
-because of intensive usages in applications.
-\doubletake{} saves those file positions of openning files in the beginning of each epoch and
-recovers those file positions before re-execution.
-%Because \texttt{read()} and \texttt{write()} can be used in socket communications, which is considered
-%as irrevocable system calls, \doubletake{} checks whether those file descriptors are related to 
-%actual files. If they are invoked on actual files, there is no other operation on those file related system calls.  
+\emph{Revocable system calls} modify system state, but \doubletake{} can save the state beforehand and restore it prior to re-execution. Most of file IO fall into this category, but socket IO are treated as irrevocable system calls. For example, \texttt{write()} changes the contents and the file position of a file. \doubletake{} saves file positions of all opening files in the beginning of each epoch and recovers them before re-execution. 
 
-\paragraph{Delayable system calls} will irrevocably change program state, but can safely
-be delayed until the end of the current epoch.
-\doubletake{} delays all calls to \texttt{munmap()} and \texttt{close()}.
+\emph{Delayable system calls} irrevocably change program state, but can safely be delayed until the end of the current epoch. For example, \doubletake{} delays all calls to \texttt{munmap()} and \texttt{close()}, and executes them before exiting the current system calls. 
 
-\paragraph{Irrevocable system calls} cannot be replayed. \doubletake{} must end the current epoch
-before these system calls are allowed to proceed. A system call not belonging to previous categories
-can be conservatively treated as an irrevocable system call.
+\emph{Irrevocable system calls} changes the program state and can not be un-done. \doubletake{} ends the current epoch before this type of system calls are allowed to proceed. A system call not belonging to previous categories can be conservatively treated as an irrevocable system call. Note that \doubletake{} uses a different meaning for ``revocable'' than that used in transactional memory systems ~\cite{Irrevocabletrans}. For example, file IO normally are treated as irrevocable system calls. When the results of re-execution can be identical to the epoch’s original
+execution, it is safe for system calls to affect externally-visible state as long as the effect can be undone or reproduced. Reducing the number of irrevocable system calls helps improve the performance because of reducing unnecessary overhead of starting and ending an epoch. 
 
-For checkpointable system calls, e.g., \texttt{read} and \texttt{write}, since they can 
-also be called in socket communications, \doubletake{} has to check whether they 
-are working on normal files. In order to speed up the checking process, \doubletake{] is using a hash map to hold file descriptors of all opening files. 
-For normal files, reads and writes can be issued normally. 
-For reads and writes in network communications, \doubletake{}  ends the current epochs since they are considered to be irrevocable system calls.
+\subsubsection{Multi-threading Support}
+\doubletake{} records the sequence of synchronizations and corresponding results separately for each thread. Basically, a synchronization event is recorded in two lists simultaneously, a per-thread list and a synchronization variable list.
 
-For recordable system calls, e.g., \texttt{gettimeofday}, \texttt{time}, and \texttt{mmap},
-\doubletake{} records the results of system calls in a First-In-First-Out list, which are necessary to be replayed in re-execution phase if memory errors are detected at the end of the current epoch. 
-For \texttt{open}-like library calls, \doubletake{} not only records file descriptors returned by system calls,
-but also adds them to the hash map discussed above.  
+For every mutex, \doubletake{} records the order of threads that acquire it. For each conditional variable, \doubletake{}records the order of thread wake-ups. \doubletake{} do not record the order of thread waits since this is enforced by the order of mutex. \doubletake{} does not enforce a total global order on lock acquisitions. Operations within a single thread are totally-ordered and recorded, and \doubletake{} enforces local order for each synchronization variable. In the absence of data races, it is sufficient to ensure deterministic re-execution. If it fails to reveal the error on replay, \doubletake{} can replay multiple times in order to get expected order.
 
-For delayable system calls, e.g., \texttt{munmap} and \texttt{close}, they are added into a global 
-list and are issued in the end of the current epoch after checkings of memory errors.
+Calls to \texttt{pthread\_create} are recorded with the same mechanism as recordable system calls. When a new thread starts, \doubletake{} takes a snapshot of the thread's stack and registers to enable re-execution from the beginning of the thread's execution. As with synchronization operations, \doubletake{} logs thread creation order and enforces this order during re-execution.  Threads exits are deferred until the end of the epoch. \texttt{pthread\_join} is effectively deferred as well.
 
-\subsubsection{Ending an Epoch}
-At the end of each epoch, \doubletake{} checks the program state for errors. 
-We have implemented error detection for heap buffer overflows (Section~\ref{sec:overflow}), 
-memory leakage (Section~\ref{sec:leak}),
-and memory use-after-free errors (Section~\ref{sec:danglingpointer}).
+\subsubsection{Multithreading Heap Allocator}
+The heap allocator discussed in Section~\ref{sec:overview} can achieve deterministic replay for applications with single thread. However, it is not enough for multi-threading applications. 
 
-When \doubletake{} do not find any memory error, it issues all delayable system calls 
-and cleans corresponding lists.
-\doubletake{} also cleans recordable system calls
-since there is no need to replay those system calls any more.
+To support multi-threading applications, \doubletake{} borrows a ``per-thread-heap'' idea from Hoard~\cite{Hoard}. A thread can only allocate memory from its own sub-heap, where those sub-heaps can obtain the memory from the global pre-allocated heap by acquiring a lock, which are guaranteed to be deterministic by the recording and the deterministic replay provided by \doubletake{}. When an object is freed, this object can only be returned to the subheap owned by current thread. 
+
+\doubletake{} uses a separate heap for internal usage. Any additional memory allocations in the replay phase are also allocated from a separate heap too, such as the \texttt{backtrace} call or printing.
+
+\subsection{Epoch End}
+The epoch ends when any thread issues an irrevocable system
+call. All other threads are notified with a signal. After all threads are stopped, \doubletake{} checks the program state for the evidence of memory errors. The details of checking errors for heap buffer overflows, memory leak, and memory use-after-free errors are discussed in Section~\ref{sec:applications}. 
+
+When \doubletake{} do not find any evidence of memory errors, it issues all delayable system calls and cleans lists of recordable system calls before entering into next epoch.  
  
-If \doubletake{} finds any memory error, it switches to the re-execution mode, discussed in Section\ref{sec:re-execution}.
+If \doubletake{} finds any memory error, it rolls back the execution to the most recent checkpoint and re-executes this program in order to locate the exact cause of this error. 
 
-\subsection{Rollback and Re-Execution}
-\label{sec:re-execution}
-When \doubletake{} detects an error, it uses rollback and re-execution to collect additional information to aid programmers in correcting the error. This additional information is either impossible or expensive to collect during normal execution.
-In normal execution, it is impossible to know those instructions responsible for buffer overflows and 
-memory usage-after-free errors if we do not check every memory access. 
-Checking every memory access obviously introduces significant performance overhead, which \doubletake{} avoids. 
-It is expensive to acquire call stacks for every memory allocation for detecting memory leakage, \doubletake{} leaves this operation to re-execution phase when memory leakage is detected.
-By doing this, \doubletake{} enables programs to run with very low overhead until an error is detected.
+\subsection{Rollback}
+\label{sec:rollback}
+When \doubletake{} detects an error, it rolls back the program  and re-execute it in order to collect exact causes of memory errors, which can be impossible or difficult to collect in normal execution. 
 
-\subsubsection*{Preparation}
-\doubletake{} does some preparation before it rolls back and re-execute a program with memory errors. 
-In order to locate instructions responsible for buffer overflows and memory usage-after-free errors,
+\doubletake{} prepares the following things before the actual rollback. In order to locate instructions responsible for buffer overflows and use-after-free errors,
 \doubletake{} installs watch points on addresses with corrupted canaries, as described in Section~\ref{sec:applications}.
-Hardware watch points are configured with debug registers, 
-but these registers are only accessible to the kernel. 
-Using \texttt{ptrace} function, \doubletake{} forks a child process to install watch points for current process.  
+Since it is impossible to access hardware debug registers in the user space, \doubletake{} forks a child process to install watch points for the current process.  
+In order to locate the site of allocation and de-allocation for objects with use-after-free errors and leak, \doubletake{} puts  all erroneous heap objects into a hash map, which are checked for every memory allocation and deallocation during re-execution. \doubletake{} also recovers file positions of all opening files.
 
-To find the allocation sites and de-allocation sites for memory usage-after-free errors and memory leakage problems, 
-\doubletake{} puts all suspected heap objects into a hash map, which are checked for every memory allocation and deallocation. 
+After that, \doubletake{} rolls back the state of program to the most recent snapshot before re-execution. Before the program stack can be restored, \doubletake{} must switch to a temporary stack in order to avoid the overwriting of current stack. Then \doubletake{} restores the state of all writable memory from the snapshot. After that, \doubletake{} restores register state with the \texttt{setcontext()} function and re-execution proceeds automatically.
+In the multithreading case, the thread that stop other threads notifies other threads to restore their own registers in a proper time. 
 
-Additionally, \doubletake{} calls \texttt{lseek} to recover file positions of all opening files.
+\subsection{Re-Execution}
+In re-execution phase, \doubletake{} handles system calls specifically depending on the type of system calls. For recordable system calls, \doubletake{} replays the saved results from the log collected during normal execution.
+For deferred system calls, \doubletake{} converts them to no-ops while the program is re-executing. \doubletake{}  issues other system calls normally.
 
-\subsubsection*{Rollback}
-Regardless of the error detection being used, \doubletake{} must roll back program state 
-before the epoch with errors can be re-executed. Before the program stack can be restored, \doubletake{} must switch to a temporary stack since the stack restore process may overwrite its own stack. Next, \doubletake{} restores the state of all writable memory from the epoch's snapshot. Finally, \doubletake{} restores register state with the \texttt{setcontext()} function and re-execution proceeds automatically.
+In re-execution phase, \doubletake{} are collecting information of memory errors, which are discussed in Section~\ref{sec:applications}. The call site information is always acquired by calling \texttt{backtrace} function, where all functions called by this should not involve in any replaying or the usage of the program heap. To collect the allocation site and deallocation site, \doubletake{} interposes memory allocation and deallocation. To detect the exact location causing buffer overflows and use-after-free errors, \doubletake{} handles the traps caused by accesses on watch points, setting up before the actual rollback (Section ~\ref{sec:rollback}). 
 
-\subsubsection*{Re-Execution}
-The main task of re-execution is to collect additional information about different memory errors, which
-have been discussed in Section~\ref{sec:applications}. 
-In re-execution phase, \doubletake{} repeats the results of recordable system calls by reusing results recorded in normal execution.
-For delayable system calls, \doubletake{} turns them to no-op in the re-execution phase.  
+\subsubsection{Trap Handler}
+Inside the trap handler, \doubletake{} firstly determines which watchpoint causes the current trap if there are multiple watch points in total. Normally, this information can be got by checking the debug status register. However, it is difficult to do this since this register can only be accessed by using \texttt{ptrace} function, which involves in more than two processes. \doubletake{} updates the values of different watch points. Thus, it can precisely determine which watchpoint is triggered by checking the changes of those watchpoints. After this, \doubletake{} also updates the values of the current watch point. 
+
+After that, \doubletake{} checks whether the faulty instruction is issued by \doubletake{} library or not. \doubletake{} sets canaries in order to detect buffer overflows and use-after-free errors, thus there is no need to further handle this trap if it is caused by \doubletake{} library itself. 
+
+In the end, \doubletake{}  prints the call site of buffer overflows or use-after-free errors and their memory allocation (and deallocation).  
+
+\subsubsection{Synchronization Replay}
+\doubletake{} enforces the recorded order of synchronization operations during re-execution by using the {\it semaphore replay} mechanism~\cite{TERN}. \doubletake{} assigns a binary semaphore for each thread, initialized as unavailable. Lock acquisitions and conditional wakeups are treated similarly here.
+
+Before the rollback, \doubletake{} checks the first synchronization event of every synchronization variable list. If an synchronization event is also the first event of a thread, the semaphore of this thread is incremented immediately. Otherwise, this thread are granted with a pending increment, incremented only after all previous synchronizations of this thread has been  handled.
+
+In the replay, a lock acquiring is turned into a semaphore wait. During a lock release, \doubletake{} actually increments  the semaphore of next thread in the same synchronization variable list, no matter whether the next thread is the same thread or not. In order to support multiple locks for a critical section, a lock acquisition also increments pending increments if possible.
+
+

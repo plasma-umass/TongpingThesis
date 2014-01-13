@@ -145,6 +145,10 @@
 \newcommand{\cmark}{\ding{52}} %51 or 52
 \newcommand{\xmark}{\ding{53}}% 53, 54, 55, 56
 \newcommand{\CC}[1]{{\large \textbf{\color{red}CC:} \emph{#1} \newline}}
+\lstdefinestyle{tt}{basicstyle=\small\ttfamily,keywordstyle=\bfseries,language=C, numbers=left, firstline=1}
+%numberblanklines=false
+\lstdefinestyle{rm}{basicstyle=\ttfamily,keywordstyle=\slshape,language=[LaTeX]{TeX}}
+
 
 \begin{document}
 
@@ -283,19 +287,19 @@ underflows without adding perceptible performance overhead.
 \input{intro}
 
 \chapter{Multithreading Problems}
-%Sheep are fabulous creatures.  The noises they make are truly stupendous
-%\cite{Bah}.  We also want to refer to figure \ref{fig:circle} here.
-%Here's some verbatim text to screw us up:
 \input {problems}
 
 \chapter{Related Work}
 \input {relatedwork}
 
+%\chapter{\DoubleTake{}: Evidence-Based Dynamic Analysis}
+%\input {doubletake/doubletakemain}
+
+%\chapter{Processes-As-Threads Framework}
+%\input{framework}
+
 \chapter{\dthreads{}:Efficient Deterministic Multithreading}
 \input {dthreads/dthreadsmain}
-
-\chapter{\DoubleTake{}: Evidence-Based Dynamic Analysis}
-\input {doubletake/doubletakemain}
 
 \chapter{\sheriff{}:Precise Detection and Automatic Mitigation of False Sharing}
 \input {sheriff/sheriffmain}

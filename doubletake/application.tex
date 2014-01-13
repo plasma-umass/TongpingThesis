@@ -12,6 +12,8 @@ Canary was first proposed by StackGuard~\cite{StackGuard} to find stack smashing
 Watch point mechanism relies on hardware debug registers to monitor memory accesses on specific addresses. Previous work has used this mechanism for their specific targets ~\cite{fastboundschecking, Kivati}. The main target of debug registers is to support software debuggers, e.g. gdb. A small number of watchpoints are available on modern architectures (four on x86). Each watchpoint can be configured to pause program execution when a specific byte or word of memory is accessed. \doubletake{} allows detection tools to set hardware watchpoints before re-execution. Heap Overflow detection tool can use watchpoints to find the instruction(s) responsible for overwriting a canary value.
 
 \subsection{Applications}
+\label{sec:applications}
+
 \doubletake{} implements three important applications based on its lightweight dynamic analysis framework. Those applications are implemented in a best-effort way to show the efficiency of our framework. They are not targeted for a complete and novel solution, thus most of mechanisms are borrowed from previous work. 
 
 \begin{figure}[!t]

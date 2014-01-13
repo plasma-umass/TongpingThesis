@@ -1,367 +1,153 @@
-\label{sec:dthreads-architecture}
-
-\begin{figure}[!ht]
-\fbox{
-\subfigure{\lstinputlisting[frame=none,boxpos=t]{dthreads/figure/mainthread.example.pseudocode}}
-\hspace{10pt}
-\subfigure{\lstinputlisting[numbers=none,frame=none,boxpos=t]{dthreads/figure/thread1.example.pseudocode}}
-\hspace{10pt}
-\subfigure{\lstinputlisting[numbers=none,frame=none,boxpos=t]{dthreads/figure/thread2.example.pseudocode}}
-}
-\caption{A simple multithreaded program with a race.\label{fig:sample}}
-\end{figure}
-
-Figure~\ref{fig:sample} shows an example multithreaded program that,
-because of data races, non-deterministically produces the outputs
-``1,0,'' ``0,1'' and ``1,1.''  The order in which these modifications
-occur can change from run to run, resulting in nondeterministic
-output.  Using \dthreads{}, this program will \emph{always} produce
-the output ``1,1''. If this is not the desired behavior, the fact that
-the result is reproducible would make it simple for the developer to
-reproduce and locate the data race.
-
-\textbf{Threads as Processes:}
-In \dthreads{}, threads are actually run as separate processes, an idea borrowed from Grace~\cite{grace}.  This means modifications by one thread are not visible to other threads until they are committed to global shared state.  Implementation is discussed in depth in Section~\ref{sec:threadsasprocs}.
-
-%advantages (performance and isolation). Note that this is fast (point
-%to Grace paper and BOP paper). Explain how it is based on clone, what
-%flags are used, and why. Advantage: isolation. Costs are amortized.
-
-\textbf{Deterministic Synchronization:}
-To ensure deterministic execution, updates to shared state must be exposed at deterministic times, and in deterministic order.  \dthreads{} commits all modifications to shared state at thread creation, locks, condition variables, barriers, and thread exit.  Commits are ordered using a ``token'' that is passed from one thread to the next; a thread can only commit when it holds the token.  The token-passing protocol is described in Section~\ref{sec:token} and the implementation of synchronization primitives is described in Section~\ref{sec:synchronization}.
-
-Rather than using retired instruction counts to demarcate commit
-boundaries (as done by CoreDet and Kendo), \dthreads{} relies
-exclusively on synchronization operations(different transactions). 
-If there is no synchronization inside, each thread in \dthreads{} can run in
-parallel. This approach dramatically increases performance for
-computation-intensive workloads with little communication between
-threads.
-
-More importantly, these natural synchronization points
-make \dthreads{} code more \emph{robust}: it is difficult for
-programmers to know when a transaction ends if the boundary is the
-number of instructions retired. That value can vary depending on the
-underlying architecture and can also be input-dependent, meaning that
-each different input may lead to completely different apparent thread
-interleavings. By contrast, \dthreads{} guarantees that all code
-between two synchronization points executes in isolation and all communications between
-threads are executed according to one global order using the fence and token mechanism 
-showed below.
 
 \textbf{Shared Memory:} 
 Because multithreaded programs frequently use updates to shared memory to communicate, \dthreads{} must implement a mechanism to expose one thread's updates to all other threads.  At the beginning of a transaction, all shared pages are protected, and can only be read by threads.  When a thread attempts to modify a shared page a local working copy is created, leaving the shared page unmodified.  At commit time, a ``twin'' copy of all modified pages is created.  Every page is compared to its twin (using a byte-wise diff) and modified bytes are copied back to the shared state.  Unlike transactional memory, conflicting changes do not result in rollbacks with \dthreads{}.  Further details are described in Section~\ref{sec:sharedmemory}.
 
-\textbf{CCC: maybe move this toward the end of the section?}
-For the code showed in Figure~\ref{fig:sample}, T1 and T2 are seeing \texttt{a=0} and \texttt{b=0} in the beginning. 
-Then they check the value of \texttt{a} or \texttt{b} and updates correspondingly, since those updates won't be shared to 
-another thread until the end of thread (in this case).
-In the end of thread, each thread are committed in the order T1--T2, then \dthreads{} can print the results of ``1,1'' finally.
 
-%\subsection{Threads as Processes}
-% TTT: 
+\section{\dthreads{} Architecture}
+\label{sec:dthreads-architecture}
+This section describes \dthreads{}’ key algorithms—memory isolation, deterministic (diff-based) memory commit, deterministic synchronization, and deterministic memory allocation—as well as other implementation details.
+
 \subsection{Isolated Memory Access}
-%\subsection{Threads as Processes}
-
 \label{sec:threadsasprocs}
+
 In order to achieve the deterministic memory access, 
 \dthreads{} isolates memory accesses among different
 threads between commit points, and commits the updates of each thread deterministically.
-%TTT end
 
-To isolate the memory access among different threads, \dthreads{} are
-treating threads as processes.  In a multithreaded program running
-with \pthreads{}, threads share all memory except for the stack.  Changes
-to memory are immediately visible to all other threads.  Threads share
-the same file descriptors, sockets, device handles, and windows.
-Because \dthreads{} runs threads in separate processes, these shared
-resources must be explicitly managed by the runtime library.
+To isolate the memory access among different threads, \dthreads{} are treating threads as processes.  In a multi-threading program running with \pthreads{}, threads share all memory except for the stack.  Changes to memory are immediately visible to all other threads.  Threads share the same file descriptors, sockets, device handles, and windows. Because \dthreads{} runs threads in separate processes, these shared resources must be explicitly managed by the runtime library.
 
 \subsubsection{Thread Creation}
-\dthreads{} replaces the \texttt{pthread\_create()} function.  Using the \texttt{clone} system call, \dthreads{} controls which resources are shared between processes.  The \texttt{CLONE\_FILES} flag (shown on line 3 of Figure~\ref{fig:threadcreation}), is used to create processes that share the same file descriptor table, but have distinct address spaces.
+\dthreads{} interposes those \texttt{pthread\_create()} functions and replaces them with \texttt{clone} system calls. By using  \texttt{CLONE\_FILES} flag, \dthreads{} create processes that have distinct address space but share the same file descriptor table. Also, \dthreads{} shims the \texttt{getpid()} function to return a single, globally-shared process identifier. 
 
 \subsubsection{Deterministic Thread Index}
 \label{sec:threadindex}
-POSIX does not guarantee deterministic process identifiers.  To avoid exposing this nondeterminism to threads running as processes, \dthreads{} uses an internal thread index and shims the \texttt{getpid()} function.  This internal thread index is managed using a single global variable that is incremented on thread creation.  This unique thread index is also used to manage per-thread heaps and as an offset into an array of thread entries.
 
-%\subsubsection{Stack and Heap} 
-% TTT: Change the title since we don't care about stack and add the mapping information, otherwise, it is not clear how we
-% do that, it is very important to do so.
-\subsubsection{Share Memory}
+POSIX does not guarantee deterministic process or thread identifiers. To avoid exposing this nondeterminism to threads running as processes, \dthreads{} shims the \texttt{pthread\_self()} function in order to return an internal thread index.  This internal thread index is managed using a single global variable that is incremented on thread creation.  This unique thread index is also used to manage per-thread heaps and as an offset into an array of thread entries.
+
+\subsubsection{Shared Memory}
 \label{sec:stackandheap}
 
-In order to create the illusion of multi-threaded programs that
-different threads are sharing the same address space, \dthreads{} uses
-memory mapped files to share the globals and heap across different
-processes. Note that \dthreads{} does not try to share the stack across
-different processes (see Section~\ref{sec:discussion}).
+In order to create the illusion that different threads are sharing the same address space, \dthreads{} uses memory mapped files to share the globals and heap across different processes(globals and heap, but not heap, see Section~\ref{sec:discussion}).
 
-\dthreads{} creates two different mappings for both the heap and the
-globals.  One is a shared mapping, which is used to hold shared state.
-The other is a private, copy-on-write (COW) per-process mapping that
-each process works on directly.  Private mappings are linked to the
-shared mapping through the one fixed-size memory mapped file.
-Reads initially go directly to the shared mapping,
-but after the first write operation,
-both reads and writes are entirely private.
-%TTT_end
+\dthreads{} creates two different mappings for both the heap and the globals.  One is a shared mapping, which is used to hold shared state. The other is a private, copy-on-write (COW) per-process mapping that each process works on directly.  Private mappings are linked to the shared mapping through the single fixed-size memory mapped file. Reads initially go directly to the shared mapping,
+but after the first write operation, both reads and writes are entirely private.
+
 Memory allocations are issued from the shared heap memory using a scalable per-thread heap organization loosely based on Hoard~\cite{BergerMcKinleyBlumofeWilson:ASPLOS2000} and built using HeapLayers~\cite{BergerZornMcKinley:2001}.  \dthreads{} divides the heap into a fixed number of sub-heaps (currently 16).  Each thread uses a hash of its thread index to find the appropriate sub-heap.
 
-%\subsection{Shared Memory} 
-% TTT: Change the title
 \subsection{Deterministic Memory Commit}
 \label{sec:sharedmem}
 
 \begin{figure}
 {\centering 
 \includegraphics[width=3.25in]{dthreads/figure/phase}
-\caption{An overview of \dthreads{} phase. Program execution with \dthreads{} parallel and serial phases.\label{fig:phase}}
+\caption{An overview of \dthreads{} phase. Program execution with \dthreads{} alternates between parallel and serial phases.\label{fig:phase}}
 }
 \end{figure}
 
-Figure~\ref{fig:phase} illustrates the progression of parallel and serial phases. 
-To guarantee determinism, \dthreads{} isolates memory accesses in parallel phase. Those memory accesses in
-parallel phase can work on their private copies of different process safely, those updates won't be exposed to 
-shared state in parallel phase.
-When a synchronization point is reached, updates are exposed in deterministic order.  
-This section describes the mechanism used to alternate between parallel and serial execution 
-and guarantee deterministic commit order, and the details of commits to shared memory.
+Figure~\ref{fig:phase} illustrates the execution of programs under \dthreads{}.  To guarantee determinism, \dthreads{} isolates memory accesses in parallel phases. In parallel phases, memory accesses work on private copies after the first write operation and updates are not shared across threads.  When a synchronization point is reached, updates are exposed in deterministic order.  This section describes the mechanisms used to guarantee deterministic commit order, and the details of commits to shared memory.
 
 \subsubsection{Fence and Token}
-% TTT: don't agree with "a global lock".
-%\subsubsection{\dthreads{} Schedule}
 \label{sec:schedule}
 
-The boundary between the parallel and serial phase is the internal fence.  
-It is not possible to implement the internal fence using the \pthreads{} barrier 
-because the number of threads required to proceed can change during execution and the \pthreads{} barrier does not provide this functionality (details in Section~\ref{sec:synchronization}).
+\dthreads{} places internal fences between the parallel and serial phases. \dthreads{} re-implements the fence because the standard \pthreads{} barrier mechanism does not support dynamic changes of threads number. 
 
-\label{sec:token}
 \begin{figure}
-\begin{lstlisting}
+\begin{lstlisting} [style=tt]
 void waitFence(void) {
-	lock();
-	while(!isArrivalPhase()) { 
-		CondWait();
-	}
+  lock();
+	
+  while(!isArrivalPhase()) { 
+    CondWait();
+  }
 
-	waiting_threads++;
-	if(waiting_threads < live_threads) {
-		while(!isDeparturePhase()) {
-			CondWait();
-		}
-	} else {
-		setDeparturePhase();
-		CondBroadcast();
-	}
+  waiting_threads++;
+  if(waiting_threads < alive_threads) {
+    while(!isDeparturePhase()) {
+      CondWait();
+    }
+  } 
+  else {
+    setDeparturePhase();
+    CondBroadcast();
+  }
 
-	waiting_threads--;
-	if (waiting_threads == 0) {
-		setArrivalPhase();
-		CondBroadcast();
-	}
-	unlock();
+  waiting_threads--;
+  if (waiting_threads == 0) {
+    setArrivalPhase();
+    CondBroadcast();
+  }
+
+  unlock();
 }
+
 \end{lstlisting}
 \caption{Pseudocode for the internal fence.\label{fig:internalFence}}
 \end{figure}
 
-Figure~\ref{fig:internalFence} shows pseudocode for the internal fence.  Threads must wait at the fence 
-until all threads from the previous 
-% TTT
-%parallel have departed (lines 3-5).  
-%Once the fence has emptied of threads,
-% Once all previous 
-fence have deptarted. Those waiting threads should block until the departure phase (lines 8-11). 
-% TTT_end
-If the thread is the last to enter the fence, it sets the departure phase and wakes the waiting threads (lines 12-15).  
-As threads leave the fence, they decrement the waiting thread count.  The last thread to leave sets the fence to the arrival phase and wakes any waiting threads (lines 17-21).
+Figure~\ref{fig:internalFence} shows the pseudocode code for the internal fence. Threads must wait at the fence 
+until all threads from the previous fence have departed. Then those threads are waiting on the fence until all alive threads  have entered into the same fence(lines 8-11). 
+The last thread entering the fence initiates the departure phase and wakes up all threads on the fence(lines 14-15). As threads leave the fence, they decrement the waiting thread count.  The last thread to leave sets the fence to the arrival phase and wakes any waiting threads (lines 19-21).
 
-\textbf{CCC: Not edited}
+To reduce overhead, whenever the number of running threads is
+less than or equal to the number of cores, waiting threads block by spinning rather than by invoking relatively expensive cross-process \pthreads{} mutexes. When the number of threads exceeds the number of cores, \dthreads{} falls back to using \pthreads{} mutexes.
 
 \begin{figure}
-\begin{lstlisting}
+\begin{lstlisting} [style=tt]
 void waitToken() {
   waitFence();
   while(isNotMyToken()) { yield(); }
 }
 void putToken() {
-    passTokenToNextOfTokenQueue();
+  passTokenToNextOfTokenQueue();
 }
 \end{lstlisting}
-\caption{Pseudocode for waitToken and putToken. waitToken() first waits at the fence (line 2) and then waits for
-the token to be set to current thread (line 3).  putToken() simply
-passes the token to the next thread entry in the token queue.
+\caption{Pseudocode for waitToken and putToken. 
 \label{fig:token}}
 \end{figure}
 
-Another important mechanism of \dthreads{} is the token implementation. 
-In order to guarantee determinism, each thread must wait for token
-before it can communicate with other threads. 
-The token is one shared pointer actually, pointing to next runnable thread entry.
-Since the token is unique in the whole system, it guarantees a global order for
-all operations in serial phase. 
+Another key mechanism of \dthreads{} is using the token to order memory commits and synchronizations. The token implementation is listed in Figure~\ref{fig:token}. The token is a shared pointer that points to the next runnable thread entry, which guarantees the global order for all operations in serial phases.  
 
-We introduce two subroutines to manage tokens. \texttt{waitToken()}
-waits at the internal fence and then waits to acquire the global token
-in order to enter serial mode. \texttt{putToken()} passes the token to
-the next waiting thread.
+\dthreads{} introduces two subroutines to manage tokens.  The\texttt{waitToken()} function first waits at the internal fence and then waits to acquire the global token
+in order to enter serial mode. The \texttt{putToken()} function passes the token to the next waiting thread. 
 
-To achieve determinism (see Figure~\ref{fig:phase}), those threads from parallel phase 
-should wait at the internal fence before they can entering into the serial phase (actually calling
-\texttt{waitToken}).
-Note that it is important to wait at fence even for one thread which doomed to win the token next,
-since their commits can affect other threads' behavior if no fence.
-In serial phase, each thread can do those commits for parallel phase and actual synchronizations
-before they passed the token to next thread. 
-In the end of serial phase, we still needs to wait at fence in order to entering into next run for the same reason.
-
-
-\textbf{CCC: Edited}
+As shown in Figure~\ref{fig:phase}, it is very important for a thread to wait at the internal fence before a thread enters into serial phases or before a thread leaves serial phases, even for a thread that is guaranteed to have the token next. Memory commits by a thread can affect other threads' behavior. 
 
 \subsubsection{Commit Protocol}
 \begin{figure}
 {\centering
-\includegraphics[width=3.25in]{dthreads/figure/architecture-diagram}
+\includegraphics[width=5in]{dthreads/figure/architecture-diagram}
 \caption{An overview of \dthreads{} execution.\label{fig:architecture}}
 }
 \end{figure}
 
-Figure~\ref{fig:architecture} shows the steps taken by \dthreads{} to capture modifications to shared state and expose them in a deterministic order.  At the beginning of the parallel phase, threads have a read-only mapping for all shared pages.  If a thread writes to a shared page during the parallel phase, this write is trapped and re-issued on a private copy of the shared page.  Reads go directly to shared memory and are not trapped.  In the serial phase, threads commit their updates one at a time.  The first thread to commit to a page can directly copy its private copy to the shared state, but subsequent commits must copy only the modified bytes.  This is done by diffing with the twin page, an unmodified copy of the shared page from the beginning of the serial phase.  At the end of the serial phase, private copies are released and these addresses are restored to read-only mappings of the shared memory.
+Figure~\ref{fig:architecture} shows the steps to capture modifications to shared state and expose them in a deterministic order.  
 
-\textbf{CCC: It looks like pages are write-protected in atomicBegin AND atomicEnd.  This seems redundant.}
+At the beginning of the parallel phases, different threads have a read-only mapping for all shared pages. If a thread writes to a shared page during the parallel phases, this write is trapped in order to create a private copy and a twin page for this shared page. After that, reads and writes on this page happen on the private copy only. Reads go directly to the shared memory and are not trapped.  
 
-\begin{figure}[!ht]
-\begin{lstlisting}
-void atomicBegin() {
-	foreach(page in modifiedPages) {
-		page.writeProtect();
-		page.privateCopy.free();
-	}
-	cleanupModifiedPageslist(); 
-}
-\end{lstlisting}
-\caption{Pseudocode for \texttt{atomicBegin}.\label{fig:atomicbegin}}
-\end{figure}
+In the serial phases, threads first commit their local changes happening in parallel phases one at a time, guided by the global token.  The first thread to commit to a page can directly copy its private copy to the shared state, but subsequent commits must copy only the modified bytes. To find out those modifications, \dthreads{} compares those private copies against those twin pages, creating from the shared mapping before actual modification.  After a thread commits its local changes, it issues synchronizations before it passes the token to next thread. 
 
-\label{sec:atomicbegin}
-
-Figure~\ref{fig:atomicbegin} shows pseudocode for the \texttt{atomicBegin()} function.   First, all previously-written pages are write-protected (line 3).  The old working copies of these pages are then discarded, and mappings are updated to reference the shared state (line 4).
-
-\begin{figure}[!ht]
-\begin{lstlisting}
-void atomicEnd(bool doCleanup) {
-	foreach(page in modifiedPages) {
-		if(page.writers > 1 && !page.hasTwin()) {
-			page.createTwin();
-		}
-
-		if(page.version == page.localCopy.version) {
-			page.copyCommit();
-		} else {
-			page.diffCommit();
-			if(doCleanup) {
-				page.writeProtect();
-				page.privateCopy.free();
-			}
-		}
-
-		page.writers = page.writers - 1;
-		if(page.writers == 0 && page.hasTwin()) { 
-			page.twin.free();
-		}
-		page.version = page.version + 1;
-	}
-}
-\end{lstlisting}
-\caption{Pseudocode for \texttt{atomicEnd}.\label{fig:atomicend}}
-\end{figure}
-
-Figure~\ref{fig:atomicend} shows the pseudocode for the \texttt{atomicend()} function.  \texttt{atomicEnd()} commits all changes from the current transaction to the shared page.  For each modified page with more than one writer, \dthreads{} ensures that a twin page is created (lines 3-5).  If the version number of the private copy matches the shared page, then this is the first thread to commit.  In this case, the entire private copy can be copied to the shared state (lines 7 and 8).  If the version numbers do not match, then another thread has already committed changes to the page and a diff-based commit must be used (lines 9-10).  If the \texttt{doCleanup} flag is set, the page is write-protected and the private copy is freed (lines 12-15).  The number of writers to the page is decremented (line 18), and if there are no writers left to commit, the twin page is freed (lines 19-21).  Finally, the shared page's version number is incremented (line 22).
-
-\textbf{CCC: Not Edited}
+In the end of serial phase, every threads have to wait at the fence in order to enter into the next parallel phase. 
 
 \subsection{Deterministic Synchronization}
 \label{sec:synchronization}
-
-Comparing to Grace, \dthreads{} supports one complete synchronization
-mechanism.  Grace turns lock operations to no-ops to eliminate
-deadlocks and does not support conditional variables or barriers.  The
-only supported synchronization by Grace is thread exit; Grace enforces
-a sequential semantics in thread exit.
-
-\dthreads{} supports the full range of synchronizations in the
-\pthreads{} API, including locks, conditional variables, barriers and
-different kinds of thread exit.
+\dthreads{} supports the full range of synchronizations of
+\pthreads{} APIs, including locks, conditional variables, barriers and different types of thread exit.
 
 \subsubsection{Locks}
+\dthreads{} uses the global token to guide synchronizations during the serial phases. Before a thread is acquiring a lock while current thread does not have the token, it has to wait for the global token. 
 
-\dthreads{} does not differentiate between specific locks by using the same global token, 
-which can possibly compromise the efficiency of program. But we argue
-that it is necessary to do so in order to get the complete
-deterministic view of memory in the share-memory model.
-Multiple locks are treated as one lock, and serial mode ends
-when all locks have been unlocked. 
-% EDB: We need to acquire a token before we can execute any
-% synchronization operation. We only release the token once our lock
-% count is 0 (for instance, lock(A); lock(B); unlock(B); unlock(A);
-% we release the token only after unlock(A).
+\dthreads{} treats multiple locks as the same one, which  possibly compromise the efficiency of programs, it only ends the serial phases when all locks are unlocked. Thus, it is possible for a program with deadlock problems that those deadlock do not occur to \dthreads{} at all. 
 
+For the acquisitions of locks, \dthreads{} checks at first whether the current thread is already holding any locks. If not, the thread first waits for the token, commits those changes happened in the last parallel phase to shared state, and begins a new atomic section. Finally, the thread increments the number of locks it is currently holding. The lock count ensures that a thread does not pass the token to the next one until it has released all of the locks.
 
-% (more reasons ******).
-
-% critical sections are normally short, so...
-
-\begin{figure}
-\begin{lstlisting}
-void mutex_lock (pthread_mutex_t * mutex) {
-  if(_locks == 0) {
-    waitToken();
-    atomicEnd(true);
-  }
-  _locks++;
-}
-\end{lstlisting}
-\begin{lstlisting}
-void mutex_unlock(pthread_mutex_t * mutex) {
-  _locks--;
-  // Release the token when no locks are held.
-  if(_locks == 0) {
-    atomicEnd(false);
-    putToken();
-    atomicBegin();
-    waitFence();
-  }
-}
-\end{lstlisting}
-\caption{Pseudocode for lock and unlock($\S$~\ref{sec:lock}).
-\label{fig:lock}}
-\end{figure}
-
-\label{sec:lock}
-Figure~\ref{fig:lock} presents pseudocode for \texttt{lock and unlock}.
-First, it will check whether current threads has already held the token(line 2). 
-If not, then current thread should wait the token in order to enter into 
-the serial phase(line 3). The first thing in the serial phase is to
-commit those changes of current transaction to the shared mapping and 
-do some basic cleanup (line 4) (see ~\ref{sec:atomicBegin}).
-In unlock(), we decrement the count for lock (line 2) and don't do anything if
-lock is no equal to 0, which makes multiple locks behaving as a huge lock, potentially 
-avoiding any possible deadlock problems.
-If lock's count is equal to 0, we commit all memory modifications (line 5) and release
-the token to next thread in the token queue (line 6). Then it can do self cleanup by calling
-\texttt{atomicBegin}. After that, it simply wait at the fence in order to enter into the next
-round's parallel phase (line 8).
+During the releases of locks, \dthreads{} decrements the lock count at first. A thread does nothing if there are still some locks holding by the current thread, with the lock count not equal to 0. If all locks have been released, \dthreads{} commits the memory changes happened in this serial phase to the shared mapping. Then it passes the global token to the next thread of the token queue and starts a new atomic region. Finally, the thread waits on the internal fence before enter inginto the next round's parallel phase.
 
 \subsubsection{Condition Variables}
-
-Guaranteeing determinism for condition variables is more complex than
-for other synchronization operations. In this case, \dthreads{} cannot
-rely on operating system support, since threads waiting on the same
-condition variable can be awakened in any order. In addition, naively
-imposing a global order could easily lead to deadlocks.
-
 \label{sec:condwait}
+
+Guaranteeing determinism for condition variables is much more complex than for other synchronization operations. The underlying operating system can not guarantee that threads are going to be waken-up in the same order as they wait on a conditional variable. Thus, a naive implementation easily leads to a deadlock problem.
+
+//NOW
 Different with the busy wait mechanism that CoreDet used, 
 \dthreads{} tries to reduce the performance cost
 introduced by busy wait mechanism. Since we have no idea when those
@@ -567,15 +353,11 @@ void thread_exit() {
 }
 \end{figure}
 
-\textbf{CCC: Edited}
-
 To guarantee determinism, thread creation and exit must be performed in the serial phase.  Newly created threads are immediately added to the token queue.  Creating a thread does not immediately release the token; this allows a single thread to quickly create multiple child threads without waiting for a new serial phase for each.
 
 Figure~\ref{fig:threadcreation} shows pseudocode for thread creation. The caller first waits for the token before proceeding (line 2).  It then creates a new process with shared file descriptors but a distinct address space using the \texttt{clone} system call (line 3).  The newly created child obtains the global thread index (line 5), places itself in the token queue (line 6), and notifies the parent that child has registered itself in the active list (line 7). The child thread then waits for the parent to reach a synchronization point.
 
 When \texttt{thread\_exit()} is called, the caller first waits for the token and then commits any local modifications (line 3). It then removes itself from the token queue (line 4) and decreases the number of threads required to proceed to the next phase (line 5). Finally, the thread passes its token to the next thread in the token queue (line 6) and exits (line 7).
-
-\textbf{CCC: Not Edited}
 
 \subsubsection{Thread Cancellation}
 
@@ -589,10 +371,8 @@ their status, which can be recorded. If one thread being cancelled are
 waiting on condition variable or barrier, it should be removed from
 corresponding queue in order to guarantee the correctness.
 
-\subsection{Data Race Example}
-% return to racey example from the top of the section, walk through an execution with dthreads
 
-\subsection{Optimizations}
+\section{Optimizations}
 \dthreads{} performs a number of optimizations to improve performance.
 
 \textbf{Single Thread Case: }
