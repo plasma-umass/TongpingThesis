@@ -67,7 +67,7 @@ operations. This increased footprint does not seem to be a problem in
 practice, both because the number of modified pages is generally far
 smaller than the number of pages read, and because it is transitory:
 all private pages are relinquished to the operating system
-(via \madvise{}) at the end of every commit operation.
+(via \texttt{madvise()}) at the end of every commit operation.
 
 %Increased memory footprint (linear in the number of dirtied (modified) pages).
 

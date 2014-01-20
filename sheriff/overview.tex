@@ -1,125 +1,91 @@
 \label{sec:overview}
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% How to replace threads with processes ?
+%  1. Replacing pthread_create() with fork
+%  2. How to achieve the same semantics with multithreading? 
+%     a. Thread Creation and Exits
+%     b. Synchronizations?
+%     c. Custom Memory Allocator. how to share memory across different threads
+%     d. Twining and diffing mechanism
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{figure*}[!t]
 \centering
-\includegraphics[height=2.3in]{sheriff/figure/overview.pdf}
+\includegraphics[height=5in]{sheriff/figure/sheriffframework.pdf}
 \caption{
-Overview about the execution of Sheriff(Section~\ref{simulation:thread}). 
-Sheriff simuates threads using processes(Section~\ref{sec:simulation}). 
-Each process works on its private copy  
-and commits modifications of current process to shared mapping in the end of transaction(Section~\ref{simulation:endtran})
-relying on ``twin page mechanism''(Section~\ref{overview-twinpage}) to get difference. 
-To get interleaving writes for detecting false sharing, 
-we introduce virtual cache line status words (Section~\ref{detection:invalidation}) 
-and sampling mechanism(Section~\ref{detection:sampling}). 
-No need for sampling mechanism and status words if only for a runtime system.
-\label{fig:overview}}
+\Sheriff{} replaces threads with processes, thus it enables page-based ``per-thread'' memory protection and memory isolation. Upon synchronization points, local changes of different ``threads'' are committed to the shared state, by comparing the difference between those working pages and their twin pages. \label{fig:overview}}
 \end{figure*}
 
-Unlike previous tools, Sheriff is designed based on a completely different approach.
-Sheriff doesn't rely on the hardware performance counter or binary instrumentation to find out false sharing problems. 
-Alternatively, Sheriff tries to design a runtime system to simulate the running of multi-threaded program and 
-monitor memory writes on different virtual cache lines from different threads.
-%After the finding of cache lines with numerous interleaving writes,
-Sheriff can precisely locate those objects or some fields inside objects causing serious performance problem. 
+Both tools are based on the same \sheriff{} framework. \sheriff{} extends the processes-as-threads idea, firstly introduced in Grace~\cite{grace}, to be a drop-in replacement library of \pthreads{}. It interposes those threads spawning calls and replaces them with \texttt{clone} system calls with \texttt{CLONE\_FILES} flag (see Section~\ref{}), so that different processes have separate address spaces and signal handler, but share all opened files. Because of that, different processes can isolate their executions and employ page-based ``per-thread'' memory protection. In order to achieve the same semantics of multithreading programs, \sheriff{} turns synchronizations into process-based synchronizations, runs the regions between synchronizations in isolation mode, and commits process-private changes to the shared mapping to achieve the shared memory semantics. Those mechanisms are described in detail in the following sections. 
 
-\subsection{Observations and Targets}
-\label{overview:target}
-There are two different types of false sharing problems according to 
-the definitions of Hyde and Fleisch~\cite{falseshare:Analysis}. 
-One is called as ``false sharing'' when multiple structurally unrelated objects 
-are located in the same cache line. 
-Another is called as ``pseduo sharing'' when multiple processors 
-are accessing different fields of the same object.
-Sheriff aims to find these two kinds of false sharing problems. 
+\subsection{Thread Creation and Exit}
 
-Note that false sharing not always cause the performance problem. 
-Whether one false sharing can cause performance problems depends on memory accessing pattern. 
-We observe that false sharing can cause significant performance problems 
-only when there are a lot of \textbf{interleaving} memory writes from different threads. 
-Based on this observeration, Sheriff is trying to capture interleaving writes from different threads and 
-report only those possible false sharing causing performance problem.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%% For global objects, Sheriff can tell the name of global objects which cause the false sharing problems.
-%%%%% For heap objects, Sheriff can tell the callsite of malloc, thus programmer can 
-%%%% refer to actual source code to find out which object caused the problems.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-%Sheriff won't intend to find instructions that cause false sharing problems. Since multiple 
-%instructions located in different functions can cause the same false sharing problem, but without the enough times 
-%to capture the attention of programmer.
-\begin{comment} 
-There are two ways to tell false sharing problems. One is to tell users about the placement to 
-touch those false sharing objects. Now PTU can point out functions to access specified addresses, without 
-the name of false sharing objects, users should still try to figure out false sharing objects
-in the whole function then they can decide how to fix the problem. 
-Another is to tell users about false sharing objects, then user can find how false sharing happens.  
-\end{comment} 
-In order to reduce the manual overhead to locate the root of false sharing problems, Sheriff tries to indentify 
-false sharing objects directly. 
+For thread creations, \sheriff{} interposes \texttt{pthread\_create()} functions and replaces them with \texttt{clone} system calls. 
+By taking advantage of a feature of Linux that allows
+selective sharing of memory and file descriptors, \sheriff{}
+sets the \texttt{CLONE\_FILES} flag when creating new processes, resulting in child processes with different address spaces but the same shared file descriptor table. However, this attribute may not be applicable to other systems, e.g., Solaris. That would require shims on I/O operations to allow processes to share open file descriptors by sending
+them over UNIX domain sockets~\cite[Section 17.4]{unixprogramming}.
 
-Since Sheriff tries to replace those standard pthreads library (including memory allocator) 
-in order to avoid the false positive problems 
-caused by heap objects, Sheriff can not be used to detect those false sharing problems 
-caused by memory allocator. 
-We believe that is also reasonable since mordern memory allocator are trying to 
-avoid false sharing problems as 
-much as possible~\cite{BergerMcKinleyBlumofeWilson:ASPLOS2000}. 
-%Section~\ref{effect-application} examplify the easiness to find the root of false sharing problem by using Sheriff.
-\subsection{Assumptions}
-\label{overview:assumption}
-Sheriff has a basic assumption about those evaluating programs 
-in order to simulate them correctly using multiprocess mechanism.
-Those evaluated program are expected to no synchronization errors, 
-such as deadlock, race condition or atomicity violations. 
-We believe that this assumption is reasonable. 
-If there are some synchronization problems inside, applications running using Sheriff
-may have a higher probability to run uncorrectly, which can prevent Sheriff to find out all false sharing problems.
+For newly spawned threads, \sheriff{} specifically invokes the \texttt{exit} function in order to exit those processes. For \texttt{pthread\_join}, the joiners  calls \texttt{waitpid} to wait for the appropriate process to complete.  
 
-\subsection{Process as Threads}
-One basic mechanism of Sheriff is to treat threads as processes, which is used firstly by Grace~\cite{grace}.
-%But Sheriff discards the sequential semantics of Grace, which Grace tends to use that to avoid concurrency errors. 
-%Also, Sheriff discards the limit of Grace (no synchronization inside) and try to provide a framework
-%which can work on general multi-threaded programs. 
-Process has its own address space and signal handler table, provides strong isolation between different threads, 
-which makes it perfect for Sheriff
-to monitor memory accesses from different threads.
-More importantly, we can utilize process to eleminate false sharing inside, no need
-to let other threads to know results if no explicit synchronization.
+\subsection{Synchronizations}
+\label{sec:sheriffsync}
 
-There is a natural concern about the performance to use process instead of threads.
-Although the overhead to create and exit one process is       
-much more than that for one thread, we don't need pay too much overhead here since  
-thread's creation and exit won't happen frequently and normal execuation of Sheriff 
-can be almost the same speed as that of processes.
+\sheriff{} supports the full range of synchronizations, including mutexes, conditional variables, barriers, and signals. By definition, synchronization is used to coordinate activities and data accesses among different threads. For example, a program calls \texttt{mutex\_lock()} before accessing the shared data. Leveraging on the processes-as-threads framework, \sheriff{} actually runs the regions between synchronizations in an isolated mode, which actually divides a program execution into different ``transactions''. In the same transaction, all reads/writes only happen on private pages after the first write operation.  At synchronization points, \sheriff{} commits those private changes of each thread to the shared mapping in order to achieve the shared memory semantics of multithreading programs. Detailed implementation about the execution inside a transaction is discussed in Section~\ref{sec:sherifftransaction}. 
 
-Section~\ref{sec:simulation} gives more details about how to simulate threads using process.
-\subsection{Twin Page Mechanism}
-\label{overview-twinpage}
-Sheriff can capture those pages modified by one process 
-when one process are trying to write on those pages protected as read-only mode.
-But it is clear that page granularity is too coarse to locate cache false sharing problems.  
-To avoid this problem, Sheriff are trying to use twin page mechanism to find the modifications on words. 
-Twin page mechanism was first used in Munin~\cite{dsm:treadmarks} to 
-capture modifications on a page in distributed share memory system.
+It is noted that the transaction concept is different with that of transactional memory~\cite{transaction}. \sheriff{} does not support rollback and favors more on a longer transaction to better amortize the overhead. 
 
-The mechanism 
-can be seen in Fig.~\ref{fig:overview}. 
-Before one working page is modified, a ``twin page'' is created which is indentical
-to the working page which are going to be modified. The twin page is keeping intact when the working
-page are modfied. 
-Later, the twin page and the working page can be compared byte by byte
-later in order to capture those modifications made on the working page.
-\begin{comment}
-In the beginning of one synchronization phase, all pages are protected. 
-At the first write on one protected page,
-a page protection violation occurs. 
-Operating system should send a signal handler to current process causing protection violation, 
-then in the signal handler Sheriff can makes a copy of current page (creation of a twin page) 
-and removes the protection on this page so that future 
-writesi (in the same phase) on this page can run at a full speed. 
-The twin page and the working copy of current process can be compared word by word
-later to capture those writes on this page in one phase.
-\end{comment}
-More details about using the ``twin page mechanism'' can be seen in Section~\ref{sec:falseshare}.
-%In this meaning, we are trying to introduce the "twin" mechanism used in DSM system in a general multithreaded
-%program by leveraging constructively the process mechanism in the same time. 
+\sheriff{} turns threads into processes and runs an application in an isolated mode when there is no synchronization. But this isolation mechanism do not work for synchronizations. For example, in the mutex\_lock(), if a process only updates its private page holding this lock variable, then this update is not seen by other processes, which can cause multiple processes enter into the same critical section concurrently. In order to coordinate across different threads, \sheriff{} invokes process-based synchronizations on those process-shared variables. This idea is also shown in Figure~\ref{fig:synccode}. Whenever there is a synchronization, \sheriff{} ends current transaction, gets its process-shared variable, and synchronizes on this that by calling its corresponding process-based synchronization. To quickly locate its process-shared variable for a synchronization variable, \sheriff{} simply stores the pointer into the first word of itself. 
+ 
+\begin{figure}[!t]
+\small
+\begin{lstlisting}[style=tt]
+void sync(var) {
+  endTransaction();
+  realVar = getRealVariable(var);
+  sync_process_based(realVar);	
+  beginTransaction();
+}
+\end{lstlisting}
+\caption{Pseudo-code for a synchronization.\label{fig:synccode}}
+\end{figure}
+
+\subsection{Shared Memory Semantics}
+
+In order to create the shared memory illusion for the process-as-threads framework, \sheriff{} employs the memory-mapped files to share the heap and globals across different processes, but not the stack. Because different threadshave their own stacks and, in general, multithreaded programsdo not use the stack for cross-thread communication.
+
+\sheriff{} creates two different mappings for both the heap and the globals. One is a shared mapping, which is used to hold shared state. Another is a private, copy-on-write(COW) mapping (per-process) that each process works on directly.
+Private mappings are linked to shared mappings through the same memory mapped file. Reads initially go to the shared mapping until the first write on a page. After the first write operation, both reads and writes happen at the private mappings only. in order to achieve the shared memory illusion, at synchronization points \sheriff{} commits the current thread's local changes to the shared mapping, relying on the Twinning-and-diffing mechanism described in Section~\ref{sec:twinning-and-diffing}. More details of this is discussed in Section~\ref{sec:sherifftransaction}.
+
+In the initialization phase, \sheriff{} checks its \texttt{/proc/pid/maps} file to find the range of its globals and creates a shared mapping for it. For the heap, \sheriff{} uses a fixed-size memory mapping, which is discussed in Section~\ref{sec:customheap}. 
+
+\subsubsection{Twinning and Diffing mechanism}
+\label{sec:twinning-and-diffing}
+In order to find out those local changed made by each thread, \sheriff{] borrows the twin page mechanism, which is first used in TreadMarks and Munin~\cite{dsm:treadmarks, dsm:munin} to capture modifications on a page in distributed share memory system.
+
+The basic idea is to create an additional ``twin'' page before the actual modification, with the help of memory protection mechanism. After that, \sheriff{} creates an identical  ``working'' page for each thread using the memory copy-on-write mechanism. At synchronization points, \sheriff{} compares a ``twin'' page and its ``working'' page in order to find out those changes made by a thread: the difference of two pages simply implies the local changes made by the current thread. 
+
+\subsubsection{Custom Memory Allocation}
+\label{sec:customheap}
+
+For the program heap, \sheriff{} replaces the default heap allocator with a BiBOP-style memory allocator, built on HeapLayers~\cite{heaplayers}. \sheriff{} pre-allocates a fixed size of memory from its underlying operating system using \texttt{mmap} system calls and satisfies memory allocations from this block by interposing all memory allocation and deallocations. In the heap, all heap objects have the block size of {\it power of $2$}, using an object header to mark its status and size information. There is no split and merge operation on heap objects. If the size of an allocation is less than {\it power of 2}, \sheriff{} allocates an object with the size of next {\it power of 2}.
+
+In order to minimize possible false sharing induced by the memory allocator, \sheriff{} borrows a ``per-thread-heap'' idea from Hoard~\cite{Hoard}. \sheriff{} divides the heap into a fixed number of sub-heaps (currently 16). The metadata for each sub-heap is also shared by different threads and protected by a cross-process mutex.  A thread can only allocate memory from its own sub-heap. When an object is freed, this object is returned to the subheap owned by current thread. Since each thread’s heap allocates from different pages, the allocator itself is unlikely to collocate two objects from different threads on the same cache line.
+
+\subsection{Execution of a Transaction}
+\label{sec:sherifftransaction}
+
+This section walks through an example of \sheriff{}'s execution from the beginning of an transaction to its termination. 
+\emph{Transaction Begin:}
+At the beginning of every transaction, \sheriff{} write-protects all shared pages so that later writes to these pages can be caught by handling SEGV protection faults.  
+\emph{Inside a Transaction: }
+Inside each transaction, \sheriff{} runs at thesame speed as a conventional multithreaded program for program reads. However, the first write to a protected page triggers a page fault that \sheriff{} handles: in the page fault handler,\sheriff{} obtains an exact copy of this page (a ``twin'' page), records the page holding the faulted address, and then unprotects this page so that future accesses run at full speed. Since \sheriff{} only exposes the private mapping to the program, write accesses on a private mapping actually create a ``working'' page for every page written inside a transaction. 
+
+Although protection faults are expensive,these costs are amortized over the entire transaction because each page only incurs at most one page fault per transaction.
+ 
+\emph{Transaction End:}
+At the end of each transaction, at thread exit and before synchronization points, \sheriff{} commits local changes of a thread to the shared mapping to achieve the shared memory semantics. \sheriff{} commits only the differences between those ''twin'' pages and their ``working'' pages.
+
+After those local changes are committed, \sheriff{} reclaims memory holding ``twin'' pages and ``working'' pages. \sheriff{} issues the \texttt{madvise} call, with the \texttt{MADV\_DONTNEED} flag, to discard those ``working'' pages. 

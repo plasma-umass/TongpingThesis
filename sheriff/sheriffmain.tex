@@ -1,53 +1,13 @@
-\label{sec:intro}
+Multithreading is an useful abstraction to exploit the hardware resources provided by a multi-core machine. Writing efficient multithreading programs remains challenging now. False sharing problem is one of notorious performance problem inside
+multithreading programs. It occurs when multiple threads, running on different cores with separate caches, are accessing logically independent words in the same cache line. If a thread modify something inside a cache line, cache coherence protocol invalidates the duplicates of this cache line in other caches in order to guarantee a correct execution of a program, which is crucial for true sharing cases. However, it is totally unnecessary for false sharing cases. False sharing problem can force one core to wait unnecessarily for updates from another processor, thus waste both the CPU time and precious memory bandwidth in the same time. False sharing is a well-known performance issue~\cite{falseshare:Analysis, falseshare:effect}. 
 
-Multithreading is considered as one way to take advantage of those 
-computation resources provided by multicore processors by spawning multiple threads 
-within the context of a single process~\cite{multithread}. 
-Unfortunately, writing efficient multithreaded programs are still a challenging task. 
-False sharing are one of major source of performance problem. 
-False sharing occurs when different threads (on different cores) are accessing on
-different words in the same cache line. 
-Cache coherence protocol forces one cache line to invalidate if some part of this cache line
-has been modified by another processor. False sharing can force one core to wait for 
-unnecessary updates from another processor, thus waste the CPU time and precious memory bandwidth. 
-False sharing is a well-known performance issue on multi-core machine with 
-separate caches~\cite{falseshare:Analysis, falseshare:effect}. 
-One microbenchmark shows that false sharing can degrade the performance 
-down to 160X slower (see Fig.~\ref{fig:benchmark2}).
+Detecting false sharing requires tools support. All existing tools shared the same shortcoming, where they can not pinpoint the exact place with false sharing problems, leaving the burden of finding actual places to programmers. Besides that, existing tools suffer from one or more shortcomings.  Simulation based approaches ~\cite{falseshare:simulator} and binary instrumentation based approaches~\cite{falseshare:binaryinstrumentation1, falseshare:binaryinstrumentation2} normally introduce very significant performance overhead, slowing down the execution over $100\times$. Hardware performance counter based approaches generally provides much better performance, but they can not differentiate false sharing from true sharing problems~\cite{detect:ptu, detect:intel}.
 
-In order to detect the false sharing problems,
-there are some approaches
-by using simulator~\cite{falseshare:simulator}, 
-binary instrumentation technique~\cite{falseshare:binaryinstrumentation1, falseshare:binaryinstrumentation2}, 
-or relying on performance monitor unit hardware~\cite{detect:ptu, detect:intel}.
-But those approaches can suffer from numerous false postives 
-or significant performance overhead (about 200X slower). 
+We provide two tools to tackle with false sharing problem, based on the processes-as-threads framework - \sheriff{}. \sheriffDetect{} detects false sharing problem accurately (without false positives) and precisely, by pointing out the exact places with false sharing problems. Also, \sheriffDetect{} is very efficient, only introducing 20\% performance overhead. \Sheriff{} is a drop-in replacement library  of standard \pthreads{} library, which doesn't rely on advanced hardware support to find the problem.
+We also provide a runtime system, \sheriffProtect{}, to automatically tolerate false sharing problems when rewriting an application to resolve false sharing is infeasible or impractical. The reason can be caused by either source is unavailable, or padding data structures would degrade performance because of reduced cache utilization and/or increase memory footprint.
 
-Besides that, all previous approaches has the same problems. 
-First, they have false positives (see Fig.~\ref{fig:benchmark5} for an example) 
-on dynamic heap objects(one major source of false sharing problems).
-Since they don't intercept memory allocation or de-allocation operations, those tools will un-correctly 
-aggregate objects access information when one address is re-used by multiple objects.
-Second, all of previous tools fail to pinpoint the source of false sharing problems, 
-at best pointing to particular addresses accessed by functions,
-which still need a lot of manual effort to find where and why false sharing occurs.
 
-Sheriff is designed to overcome all previous shortcomings metioned above. 
-Sheriff is a software-only system (relying on hardware's page fault mechanism only) 
-which doesn't rely on advanced hardware support to find the problem.
-Sheriff is based on a runtime system which replaces the pthread library and can eleminating 
-false sharing silently.
-Sheriff won't introduce any false positives, thus programmer don't need any
-unnecessary work to confirm that problem. 
-Sheriff can precisely locate false sharing problem, 
-by providing name and size information for global variables and providing allocation sites for heap objects, 
-thus it is easy to fix the false sharing problem by these information (see one case study in 
-Section~\ref{evaluation:comparison}). 
-Besides, the performance overhead of Sheriff is only 26\% (???) on average, which is notably lower than
-previous tools using binary instrumentation 
-technique~\cite{falseshare:binaryinstrumentation1, falseshare:binaryinstrumentation2}.
-
-\section{Framework}
+\section{\sheriff{} Framework}
 \input{sheriff/overview}
 
 \section{Detecting False Sharing}

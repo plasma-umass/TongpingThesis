@@ -1,11 +1,50 @@
 \label{sec:falseshare}
+
+\subsection{Basic Idea}
+
+How can we detect the false sharing?
+
+What is the false sharing problem? Why false sharing can cause performance problem ==> a lot of cache invalidations? 
+
+Thus, we only need to locate those cache lines with a lot of cache invalidations. 
+
+How to capture a cache invalidations? 
+
+(Maybe mention: the ownership concept used by Zhaoqing. However, in order to keep track of the ownership, they maintain a bit for a thread, which greatly limit their scalability. 
+
+We are using a different mechanism. A thread writes to a cache line means it owns this thread. 
+Only write operation can change the ownership of a cache line. 
+
+In our cache line status, . 
+
+
+\subsection{Observations and Targets}
+\label{overview:target}
+There are two different types of false sharing problems according to 
+the definitions of Hyde and Fleisch~\cite{falseshare:Analysis}. 
+One is called as ``false sharing'' when multiple structurally unrelated objects 
+are located in the same cache line. 
+Another is called as ``pseduo sharing'' when multiple processors 
+are accessing different fields of the same object.
+Sheriff aims to find these two kinds of false sharing problems. 
+
+Note that false sharing not always cause the performance problem. 
+Whether one false sharing can cause performance problems depends on memory accessing pattern. 
+We observe that false sharing can cause significant performance problems 
+only when there are a lot of \textbf{interleaving} memory writes from different threads. 
+Based on this observeration, Sheriff is trying to capture interleaving writes from different threads and 
+report only those possible false sharing causing performance problem.
+
+\subsection{Detailed Implementations}
+
 From above section, we already know that how to design a runtime system to simulate the running 
 of multi-threaded program. 
 
-In this section, we are going to talk how to indentify false sharing problems by recording memory writing using
+In this section, we are going to talk how to identify false sharing problems by recording memory writing using
 the runtime system.
 This section are trying to answer the following questions:
 
+% What is the basic idea 
 \begin{itemize}
 \item How to capture the memory writes from different process?
 \item How to capture the continuous memory writes?
