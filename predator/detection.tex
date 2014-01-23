@@ -97,19 +97,12 @@ In order to report false sharing precisely and accurately,
 \begin{itemize}
 \item
 
-\Predator{} keeps track of access information for each word on those cache lines involved in false sharing: how many reads or writes to each word by which thread.  When a word is accessed by multiple threads, we mark the origin of this word as a shared access and do not track threads for further accesses to it. This information lets \Predator{} accurately distinguish false sharing from true sharing in the reporting phase.  It also helps diagnose where
-actual false sharing occurs when there are multiple fields or multiple
-objects in the same cache line, as this can greatly reduce the manual
-effort required to fix the false sharing problems.
+In order to accurately differentiate those false sharing problems with true sharing problems, \Predator{} tracks word-level accesses for those cache lines involved in a big number of cache invalidations, which has been discussed in Section~\ref{sec:accuratedetect}.
+
 
 \item
-In order to precisely report the origins of heap objects with false
-sharing problems, \Predator{} maintains callsite information for each heap
-object and reports source code level information for each heap
-object. To obtain callsite information, \Predator{} intercepts all memory allocations and de-allocations, and relies
-on the \texttt{backtrace()} function in the \texttt{glibc} library to obtain the whole callsite stack.
-\Predator{} also avoids pseudo false sharing (false positives) caused by memory reuses because it updates recording information at memory de-allocations for those objects without false sharing problems; heap objects involved in false 
-sharing are never reused.
+As described in Section~\ref{}, \predator{} relies on \texttt{backtrace()} function in the \texttt{glibc} library to obtain the whole callsite stack, which is slower but much more robust to be used than the ways used in \SheriffDetect{}.
+
 
 
 \item

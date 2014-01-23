@@ -1,4 +1,4 @@
-\label{sec:overview}
+\label{sec:sheriffframework}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -54,7 +54,9 @@ void sync(var) {
 
 \subsection{Shared Memory Semantics}
 
-In order to create the shared memory illusion for the process-as-threads framework, \sheriff{} employs the memory-mapped files to share the heap and globals across different processes, but not the stack. Because different threadshave their own stacks and, in general, multithreaded programsdo not use the stack for cross-thread communication.
+In order to create the shared memory illusion for the process-as-threads framework, \sheriff{} employs the memory-mapped files to share the heap and globals across different processes, but not the stack. Because different threads
+have their own stacks and, in general, multithreaded programs
+do not use the stack for cross-thread communication.
 
 \sheriff{} creates two different mappings for both the heap and the globals. One is a shared mapping, which is used to hold shared state. Another is a private, copy-on-write(COW) mapping (per-process) that each process works on directly.
 Private mappings are linked to shared mappings through the same memory mapped file. Reads initially go to the shared mapping until the first write on a page. After the first write operation, both reads and writes happen at the private mappings only. in order to achieve the shared memory illusion, at synchronization points \sheriff{} commits the current thread's local changes to the shared mapping, relying on the Twinning-and-diffing mechanism described in Section~\ref{sec:twinning-and-diffing}. More details of this is discussed in Section~\ref{sec:sherifftransaction}.
@@ -78,14 +80,19 @@ In order to minimize possible false sharing induced by the memory allocator, \sh
 \label{sec:sherifftransaction}
 
 This section walks through an example of \sheriff{}'s execution from the beginning of an transaction to its termination. 
-\emph{Transaction Begin:}
-At the beginning of every transaction, \sheriff{} write-protects all shared pages so that later writes to these pages can be caught by handling SEGV protection faults.  
-\emph{Inside a Transaction: }
-Inside each transaction, \sheriff{} runs at thesame speed as a conventional multithreaded program for program reads. However, the first write to a protected page triggers a page fault that \sheriff{} handles: in the page fault handler,\sheriff{} obtains an exact copy of this page (a ``twin'' page), records the page holding the faulted address, and then unprotects this page so that future accesses run at full speed. Since \sheriff{} only exposes the private mapping to the program, write accesses on a private mapping actually create a ``working'' page for every page written inside a transaction. 
 
-Although protection faults are expensive,these costs are amortized over the entire transaction because each page only incurs at most one page fault per transaction.
+\emph{Transaction Begin:}
+At the beginning of every transaction, \sheriff{} write-protects all shared pages so that later writes to these pages can be caught by handling SEGV protection faults.  
+
+\emph{Inside a Transaction: }
+Inside each transaction, \sheriff{} runs at the
+same speed as a conventional multithreaded program for program reads. However, the first write to a protected page triggers a page fault that \sheriff{} handles: in the page fault handler,\sheriff{} obtains an exact copy of this page (a ``twin'' page), records the page holding the faulted address, and then unprotects this page so that future accesses run at full speed. Since \sheriff{} only exposes the private mapping to the program, write accesses on a private mapping actually create a ``working'' page for every page written inside a transaction. 
+
+Although protection faults are expensive,
+these costs are amortized over the entire transaction because each page only incurs at most one page fault per transaction.
  
 \emph{Transaction End:}
 At the end of each transaction, at thread exit and before synchronization points, \sheriff{} commits local changes of a thread to the shared mapping to achieve the shared memory semantics. \sheriff{} commits only the differences between those ''twin'' pages and their ``working'' pages.
 
-After those local changes are committed, \sheriff{} reclaims memory holding ``twin'' pages and ``working'' pages. \sheriff{} issues the \texttt{madvise} call, with the \texttt{MADV\_DONTNEED} flag, to discard those ``working'' pages. 
+After those local changes are committed, \sheriff{} reclaims memory holding ``twin'' pages and ``working'' pages. 
+\sheriff{} issues the \texttt{madvise} call, with the \texttt{MADV\_DONTNEED} flag, to discard those ``working'' pages. 
