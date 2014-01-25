@@ -1,4 +1,10 @@
-The general trend in processor development has moved to the multi-core era: dual-cores, quad-cores, or even hundreds of cores are common in the same machine. Multi-threading is a general approach in order to fully utilize these CPU resources. However, writing multithreaded programs is still challenging: multithreaded applications are susceptible to performance anomalies and concurrency errors, which are notoriously difficult to debug.
+For decades, applications enjoyed automatic and regular performance gains from increasingly faster CPU speed.  However, this trend has stopped permanently because of hard physical limits. Computer manufacturers have turned to providing more and more cores on a single machine. This phenomenon drives the biggest revolution of software development: software has to be programmed in a concurrent and parallel way in order to exploit the benefits of multi-core machines.Building efficient and reliable concurrent software is still a challenging task because of the following reasons. First, concurrency requires programmers to think in an unnatural way that humans find difficult.  Second, existing languages and tools are inadequate to detect or prevent concurrency errors and performance anomalies. 
+
+% Why we need determinism? Concurrency errors?
+In multithreaded environment, there exists a range of concurrency errors, such as race conditions, atomicity violations, order violations and deadlocks. These concurrency errors makes the program very hard to debug and reasoning because their occurrences highly depend on some specific conditions, such as thread interleavings and CPU scheduling. 
+
+% Why we need to find out false sharing problems. 
+Multithreaded applications are still susceptible to concurrency errors and performance anomalies, which are notoriously difficult to debug. 
 
 First, it is hard to write correct multithreaded programs.  
 Because the execution of a program depends on thread interleavings, which happen randomly and differently, programs may run differently in different executions. Even worse, those concurrency errors are difficult to reproduce. This non-deterministic behavior makes it hard to understand and debug multi-threaded programs.
