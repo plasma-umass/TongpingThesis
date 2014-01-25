@@ -234,7 +234,9 @@ calls. Since \SheriffDetect{} replaces lock calls with their interprocess varian
 
 \SheriffDetect{} employs sampling to detect false sharing happening in long transactions. Sampling is only triggered when a transaction's runtime exceeds a pre-defined sampling interval, usually 10ms. Inside the timer handler, \SheriffDetect{} tracks memory accesses and updates cache liens status words. Thus, there is a precision-cost tradeoff: increased sampling rates may uncover more false sharing problems, but at the cost of increase performance overhead. 
 
-To measure \sheriffdetect{}'s sensitivity to the sampling rate, we compare its behavior under three different samplingrates: 2ms, 10ms (our baseline), and 50ms.
+To measure \sheriffdetect{}'s sensitivity to the sampling rate
+, we compare its behavior under three different sampling
+rates: 2ms, 10ms (our baseline), and 50ms.
 
 \paragraph{Sampling Overhead:} Figure~\ref{fig:sensitivity} shows the performance overhead under these different sampling rates, normalized to the runtime of using 10ms sample interval. Generally, the choice of sampling interval has little performance impact across all evaluated benchmarks.  For most of these benchmarks, sampling imposes relatively
 small overhead.

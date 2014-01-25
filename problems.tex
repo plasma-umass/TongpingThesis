@@ -118,35 +118,3 @@ Deterministic execution is a nice property: programs always produce
 the same output given the same input.
 Determinism greatly simplifies the understanding and debugging of multithreaded programs.
 
-\section{Race Condition and Buffer Overflow}
-Race condition occurs when multiple threads are trying to access the same address, 
-where at least one of them is a write access.
-Race condition can cause non-deterministic results based on 
-the timing of accesses.
-The example showed in Figure~\ref{fig:nondeterminism} has a race condition since \texttt{t1} 
-can access the variable \texttt{a} when thread \texttt{t2} is writing on that. As what we described 
-in the Section~\ref{sec:nondeterminism}, this can cause nondeterminsitc executions.
-
-Buffer overflow is a memory corruption error, occurs when the software writes data to a place outside
-the boundary of current memory block.
-Buffer overflow can result in erratic program behavior, including program 
-crashes, races or incorrect results. 
-Examples of buffer overflow are listed in the Figure~\ref{fig:overflow}.
-
-\begin{figure*}[!ht]
-{\centering
-\fbox{
-\subfigure{\lstinputlisting[numbers=none,frame=none,boxpos=t]{fig/overflow.sample1}}
-\hspace{12pt}
-\subfigure{\lstinputlisting[numbers=none,frame=none,boxpos=t]{fig/overflow.sample2}}
-}
-\caption{Buffer overflow problems 
-\label{fig:overflow}}
-}
-\end{figure*}
-
-The left side of Figure~\ref{fig:overflow} is a stack overflow problem since this program corrupts 
-the stack variable of \texttt{str} by writing 7 bytes to an array with 5 bytes.
-The right side is a heap overflow problem because the variable \texttt{str} is a heap object. 
-Buffer overflow problem can be exploited to attack the system, causing security problems.
-
