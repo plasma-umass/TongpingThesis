@@ -1,12 +1,5 @@
 
-\label{sec:introduction}
-
-The advent of multicore architectures has made multithreaded
-programming increasingly necessary, but writing multithreaded programs remains painful. It is notoriously far more challenging to write concurrent programs than sequential ones because of the wide range of errors it can cause, including deadlocks and race conditions~\cite{havender,76897,130623}. Because thread interleavings are non-deterministic, different runs of the same multithreaded program can unexpectedly produce different results. These ``Heisenbugs'' greatly complicate debugging, and eliminating them requires extensive testing to account for possible thread interleavings~\cite{DBLP:conf/icse/BallBHMQ09,DBLP:conf/asplos/BurckhardtKMN10}.
-
-
-Instead of testing, one promising alternative approach is to attack the problem of concurrency bugs by eliminating its source: non-determinism. A fully \emph{deterministic multithreaded system} would prevent Heisenbugs by ensuring that executions of the same program with the same inputs always yield the same results, even in the face of race conditions in the code. Such a system would not only dramatically simplify debugging of concurrent programs~\cite{Carver:1991:RTC:624586.625040} and reduce their attendant testing overhead, but would also enable a number of other applications. For example, a deterministic multithreaded system would greatly simplify record and replay for multithreaded programs~\cite{Choi:1998:DRJ:281035.281041,LeBlanc:1987:DPP:32387.32396}
-and the execution of multiple replicas of multithreaded applications for fault tolerance~\cite{deterministic-process-groups,1134000,224058,replicant-hotos}.
+\label{chapter:dthreads}
 
 Several recent software-only proposals aim at providing
 deterministic multithreading, but these all suffer from a variety of disadvantages. Language-based approaches are effective at removing determinism but require programmers to write code in specialized languages, which can be impractical~\cite{Bocchino:2009:TES:1640089.1640097,Burckhardt:2010:CPR:1869459.1869515,Simpson:1999:SEE:330346.330357}. Recent deterministic systems that target legacy programming languages

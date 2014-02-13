@@ -1,3 +1,5 @@
+\label{chapter:sherifftools}
+
 Multithreading is an useful abstraction to exploit the hardware resources provided by a multi-core machine. Writing efficient multithreading programs remains challenging now. False sharing problem is one of notorious performance problem inside
 multithreading programs. It occurs when multiple threads, running on different cores with separate caches, are accessing logically independent words in the same cache line. If a thread modify something inside a cache line, cache coherence protocol invalidates the duplicates of this cache line in other caches in order to guarantee a correct execution of a program, which is crucial for true sharing cases. However, it is totally unnecessary for false sharing cases. False sharing problem can force one core to wait unnecessarily for updates from another processor, thus waste both the CPU time and precious memory bandwidth in the same time. False sharing is a well-known performance issue~\cite{falseshare:Analysis, falseshare:effect}. 
 
@@ -7,8 +9,8 @@ We provide two tools to tackle with false sharing problem, based on the processe
 We also provide a runtime system, \SheriffProtect{}, to automatically tolerate false sharing problems when rewriting an application to resolve false sharing is infeasible or impractical. The reason can be caused by either source is unavailable, or padding data structures would degrade performance because of reduced cache utilization and/or increase memory footprint.
 
 
-\section{\sheriff{} Framework}
-\input{sheriff/overview}
+%\section{\sheriff{} Framework}
+%\input{sheriff/overview}
 
 \section{Detecting False Sharing}
 \input{sheriff/detection}

@@ -1,9 +1,9 @@
 
-\textbf{Shared Memory:} 
+\begin{comment}
 Because multithreaded programs frequently use updates to shared memory to communicate, \dthreads{} must implement a mechanism to expose one thread's updates to all other threads.  At the beginning of a transaction, all shared pages are protected, and can only be read by threads.  When a thread attempts to modify a shared page a local working copy is created, leaving the shared page unmodified.  At commit time, a ``twin'' copy of all modified pages is created.  Every page is compared to its twin (using a byte-wise diff) and modified bytes are copied back to the shared state.  Unlike transactional memory, conflicting changes do not result in rollbacks with \dthreads{}.  Further details are described in Section~\ref{sec:sharedmemory}.
+\end{comment}
 
 
-\section{\dthreads{} Architecture}
 \label{sec:dthreads-architecture}
 This section describes \dthreads{}’ key algorithms—memory isolation, deterministic (diff-based) memory commit, deterministic synchronization, and deterministic memory allocation—as well as other implementation details.
 
@@ -12,12 +12,9 @@ This section describes \dthreads{}’ key algorithms—memory isolation, determi
 
 In order to achieve the deterministic memory access, 
 \dthreads{} isolates memory accesses among different
-threads between commit points, and commits the updates of each thread deterministically.
+threads between commit points, and commits the updates of each thread deterministically. \dthreads{} is based on the \sheriff{} framework, discussed in Section~\ref{sec:sheriffframework}.
 
-To isolate the memory access among different threads, \dthreads{} are treating threads as processes.  In a multi-threading program running with \pthreads{}, threads share all memory except for the stack.  Changes to memory are immediately visible to all other threads.  Threads share the same file descriptors, sockets, device handles, and windows. Because \dthreads{} runs threads in separate processes, these shared resources must be explicitly managed by the runtime library.
-
-\subsubsection{Thread Creation}
-\dthreads{} interposes those \texttt{pthread\_create()} functions and replaces them with \texttt{clone} system calls. By using  \texttt{CLONE\_FILES} flag, \dthreads{} create processes that have distinct address space but share the same file descriptor table. Also, \dthreads{} shims the \texttt{getpid()} function to return a single, globally-shared process identifier. 
+Relying on the \sheriff{} framework, \dthreads{} isolates  memory access among different threads: different threads can only see their own local changes. Additionally, \dthreads{} shims the \texttt{getpid()} function to return a single, globally-shared process identifier. 
 
 \subsubsection{Deterministic Thread Index}
 \label{sec:threadindex}
@@ -27,9 +24,9 @@ POSIX does not guarantee deterministic process or thread identifiers. To avoid e
 \subsubsection{Shared Memory}
 \label{sec:stackandheap}
 
-In order to create the illusion that different threads are sharing the same address space, \dthreads{} uses memory mapped files to share the globals and heap across different processes(globals and heap, but not heap, see Section~\ref{sec:discussion}).
+In order to create the illusion that different threads are sharing the same address space, \dthreads{} uses memory mapped files to share the globals and heap across different processes.
 
-\dthreads{} creates two different mappings for both the heap and the globals.  One is a shared mapping, which is used to hold shared state. The other is a private, copy-on-write (COW) per-process mapping that each process works on directly.  Private mappings are linked to the shared mapping through the single fixed-size memory mapped file. Reads initially go directly to the shared mapping,
+As discussed in Section~\ref{sec:sharedmemory}, \dthreads{} creates two different mappings for both the heap and the globals.  One is a shared mapping, which is used to hold shared state. The other is a private, copy-on-write (COW) per-process mapping that each process works on directly.  Private mappings are linked to the shared mapping through the single fixed-size memory mapped file. Reads initially go directly to the shared mapping,
 but after the first write operation, both reads and writes are entirely private.
 
 Memory allocations are issued from the shared heap memory using a scalable per-thread heap organization loosely based on Hoard~\cite{BergerMcKinleyBlumofeWilson:ASPLOS2000} and built using HeapLayers~\cite{BergerZornMcKinley:2001}.  \dthreads{} divides the heap into a fixed number of sub-heaps (currently 16).  Each thread uses a hash of its thread index to find the appropriate sub-heap.
@@ -130,7 +127,7 @@ In the end of serial phase, every threads have to wait at the fence in order to 
 \subsection{Deterministic Synchronization}
 \label{sec:synchronization}
 \dthreads{} supports the full range of synchronizations of
-\pthreads{} APIs, including locks, conditional variables, barriers and different types of thread exit.
+\pthreads{} APIs, including locks, conditional variables, barriers and different types of thread exit. Because the \sheriff{} framework can not provide any determinism guarantee, \dthreads{} re-implements all synchronizations as the following.
 
 \subsubsection{Locks}
 \dthreads{} uses the global token to guide synchronizations during the serial phases. Before a thread is acquiring a lock while current thread does not have the token, it has to wait for the global token. 

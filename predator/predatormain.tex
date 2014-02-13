@@ -1,3 +1,5 @@
+\label{chapter:preditor}
+
 This chapter presents \Predator{}, which improves the detection of false sharing. \SheriffDetect{} reports false sharing accurately and precisely with only $20\%$ performance overhead. However, it can only detect write-write false sharing for those programs using \pthreads{} library. \Sheriff{} can also break programs communicating across different threads with stack variables or self-defined synchronizations. These shortcomings greatly limit \Sheriff{}'s usage on real-world applications.  
 
 In contrast to \SheriffDetect{}, \Predator{} detects all types of false sharing and has no limitations on applications. \Predator{} has been utilized to find actual false sharing in real applications, including \texttt{MySQL} and the \texttt{Boost} library.
