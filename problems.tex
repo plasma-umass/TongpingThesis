@@ -124,7 +124,15 @@ There also existing several approaches to fix false sharing problems automatical
 \section{Non-determinism}
 
 \subsection{Definition}
+Deterministic behavior of programs is the most desirable behavior: given the same input, a program
+should produce the same output and generate the same execution. Relying on this behavior, programers
+are able to figure out potential problems in programs. 
 
+In reality, it is relatively easy for sequential
+programs to achieve this target if a program do not explicitly introduce a randomized mechanism. 
+However, it is hard to achieve this target for parallel programs.
+Normally, multiple   
+When designing a program, programmers expect that given the same input 
 \subsubsection{Program Input}
 A program with the same input does not always create the same output in different executions,
 known as ``non-determinism'' problem.
