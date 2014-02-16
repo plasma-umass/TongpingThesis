@@ -1,0 +1,52 @@
+\textbf{XXXX :added by Tongping}
+\label{sec:patrol}
+
+As the discussion from Section~\ref{overview:insight}, delaying updates can be used to improve the performance.
+Since \sheriff{} are using processes instead of threads, having the separate address space, thus 
+updates happen locally on different threads if there is no synchronization.
+In this way, \sheriff{} can avoid the false sharing internally caused by updating the same physical cache line.
+
+In fact, two limitations can slowdown the performance of \sheriff{} even \sheriff{} can tolerate the 
+false sharing problem inside.
+\begin{itemize}
+\item
+The overhead to protect and commit those non-shared pages can dominate the runtime of the whole system. Currently, 
+\sheriff{} have to commit all local changes of different threads 
+to the shared mapping in the end of every transaction even when one page is not shared at all. 
+Transaction boundary can be any synchronization of multi-threaded program.  
+
+\item
+When the transaction is short, the overhead of protections and commits existing in \sheriff{} can be higher
+than the benefit by tolerating the false sharing problem inside.
+
+\item
+The overhead to use process can be higher than that to use threads. First of all, the overhead to creat one process 
+can be higher than that to creat one thread. 
+\end{itemize}
+
+In order to improve the performance for most of applications, 
+\sheriffprotect{} provides two corresponding mechanisms to handle the first two problems 
+thus avoid most of overhead efficiently according to the experiments. 
+
+\begin{itemize}
+\item
+First, based on our knowledge about false sharing problem, most of large objects are private or partly shared. 
+Thus the overhead to protect large objects can be much larger than the benefit we can get.
+\sheriffprotect{} only create private mapping for those small heap objects (less than 1024 bytes) and those global objects.
+%As we can see from Section~\ref{sec:evaluation}, performance can be affected greatly by transaction length.
+
+\item 
+For the second problem, \sheriffprotect{} utilize one simple adaptive mechanism to avoid this pitfall.
+\sheriffprotect{} are keeping track of the length of one transaction.
+If the average transaction length is shorter than one pre-set threshold,
+\sheriffprotect{} should close the protection for all memory.
+Since the condition of running can change, \sheriffprotect{} keeps an eye on the average transaction length 
+and checks every certain perild of time (50 transactions are used in the system).
+Whenever the transaction length are larger than the pre-set threashold, the memory are protected again to
+tolerate the possible false sharing inside.
+In order to avoid the effect of temporary fluctuation of running condition,
+which can cause too many on-and-off switches of memory protection,
+\sheriffprotect{} runtime are using the exponential moving average here
+to calculate the average transaction length (exponent are set to 0.9).
+
+\end{itemize}
