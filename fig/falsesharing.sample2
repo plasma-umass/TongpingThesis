@@ -1,6 +1,6 @@
 void * child (void * ptr) {
   int tid = (int)ptr;
-  for(i = 0; i < M; i++)
+  for(i = 0; i < 1M; i++)
     Array[tid]++;
   }
 }

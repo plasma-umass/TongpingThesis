@@ -1,9 +1,9 @@
 void * child (void * ptr) {
   int tid = (int)ptr;
-  int temp = Array[tid]; //FIX
-  for(i = 0; i < M; i++)
+  int temp = Array[tid]; 
+  for(i = 0; i < 1M; i++)
     // Array[tid]++; 
-    temp++; //FIX
+    temp++; 
   }
-  Array[tid] = temp; // FIX
+  Array[tid] = temp; 
 }

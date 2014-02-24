@@ -11,14 +11,15 @@
 %     d. Twining and diffing mechanism
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{figure*}[!t]
+
+\sheriff{} extends the processes-as-threads idea, firstly introduced in Grace~\cite{grace}, to be a drop-in replacement library of \pthreads{}. It interposes those threads spawning calls and replaces them with \texttt{clone} system calls with \texttt{CLONE\_FILES} flag (see Section~\ref{}), so that different processes have separate address spaces and signal handler, but share all opened files. Because of that, different processes can isolate their executions and employ page-based ``per-thread'' memory protection. In order to achieve the same semantics of multithreading programs, \sheriff{} turns synchronizations into process-based synchronizations, runs the regions between synchronizations in isolation mode, and commits process-private changes to the shared mapping to achieve the shared memory semantics. Those mechanisms are described in detail in the following sections. 
+
+\begin{figure*}[!h]
 \centering
 \includegraphics[height=5in]{sheriff/figure/sheriffframework.pdf}
 \caption{
 \Sheriff{} replaces threads with processes, thus it enables page-based ``per-thread'' memory protection and memory isolation. Upon synchronization points, local changes of different ``threads'' are committed to the shared state, by comparing the difference between those working pages and their twin pages. \label{fig:overview}}
 \end{figure*}
-
-\sheriff{} extends the processes-as-threads idea, firstly introduced in Grace~\cite{grace}, to be a drop-in replacement library of \pthreads{}. It interposes those threads spawning calls and replaces them with \texttt{clone} system calls with \texttt{CLONE\_FILES} flag (see Section~\ref{}), so that different processes have separate address spaces and signal handler, but share all opened files. Because of that, different processes can isolate their executions and employ page-based ``per-thread'' memory protection. In order to achieve the same semantics of multithreading programs, \sheriff{} turns synchronizations into process-based synchronizations, runs the regions between synchronizations in isolation mode, and commits process-private changes to the shared mapping to achieve the shared memory semantics. Those mechanisms are described in detail in the following sections. 
 
 \section{Thread Creation and Exit}
 

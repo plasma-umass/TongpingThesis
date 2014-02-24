@@ -155,7 +155,7 @@
 
 %%
 %% You must fill in all of these appropriately
-\title{Safe and Efficient Multithreading}
+\title{Reliable and Efficient Multithreading}
 \author{Tongping Liu}
 \date{May 2014} % The date you'll actually graduate -- must be
                      % February, May, or September
@@ -238,13 +238,13 @@
 \begin{abstract}                % Abstract
 The advent of multicore architecture has increased the demand for multithreaded programs. It is notoriously far more challenging to write concurrent programs correctly and efficiently than sequential ones, because of the wide range of concurrency errors and performance problems. 
 
-In this thesis, I developed a series of runtime systems and tools to combat concurrency errors and performance problems  of multithreaded programs.
+In this thesis, I developed a series of runtime systems and tools to combat concurrency errors and performance problems of multithreaded programs.
 
-The first system, \dthreads{}, automatically ensures determinism for unmodified C/C++ applications using the \pthreads{} library, without requiring programmers' intervention. Because of determinism, it greatly simplifies the understanding and debugging of multithreading programs. \dthreads{} outperforms the previous state-of-the-art more than $3\times$, thus greatly propel the development of this field. \dthreads{} leverages the isolated executions, combined with a deterministic commit protocol and its deterministic memory allocator, to ensure robust deterministic execution with very low runtime overhead.
+The first system, \dthreads{}, automatically ensures determinism for unmodified C/C++ applications using the \pthreads{} library, without requiring programmer intervention. Because of determinism, it greatly simplifies the understanding and debugging of multithreading programs. \dthreads{} outperforms the previous state-of-the-art (CoreDet) more than $3\times$, thus greatly propel the development of this field. \dthreads{} leverages the isolated executions, combined with a deterministic commit protocol and a deterministic memory allocator, to ensure robust deterministic execution with very low runtime overhead.
 
-The second system, \Sheriff{}, attacks one of notorious performance problems of multithreaded programs, false sharing. \Sheriff{} first provides the first accurate and precise detection tool, \sheriffdetect{}, which can pinpoint the name of global variables or the line of source code of heap objects having false sharing problems without any false positives. \sheriff{} also provides a runtime system, \SheriffProtect{}, to automatically boost performance for those programs having false sharing problems inside, when fixing false sharing problems is unable to improve the performance or is impossible because of lacking source code or time. 
+The second system attacks one of notorious performance problems of multithreaded programs, false sharing. We provide the first accurate and precise detection tool, \sheriffdetect{}, which can pinpoint the name of global variables or the line of source code of heap objects when they have false sharing problems inside, without any false positives. We also provide a runtime system, \SheriffProtect{}, to automatically boost performance for those programs with false sharing problems inside, when fixing false sharing problems is unable to improve the performance or is impossible because of lacking source code or time. 
 
-The third system, \predator{}, improves the effectiveness of false sharing detection. It can detect one more type of false sharing, read-write false sharing. It is a generalized tool that can work on applications without any limitations. Also, it can even detect false sharing problems without the requirement of occurrences. \Predator{} is also the first tool to detect false sharing problems happened in those complex real applications. 
+The third system, \predator{}, improves the effectiveness of false sharing detection. It can detect one more type of false sharing, read-write false sharing. It is a generalized tool that can work on applications without any limitations. Also, it can even detect false sharing problems without the requirement of occurrences. \Predator{} is also the first tool to precisely detect false sharing problems happened in those complex real applications. 
 
 \end{abstract}
 
