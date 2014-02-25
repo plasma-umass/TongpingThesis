@@ -7,33 +7,6 @@ Because multithreaded programs frequently use updates to shared memory to commun
 \label{sec:dthreads-architecture}
 This section describes \dthreads{}’ key algorithms—memory isolation, deterministic (diff-based) memory commit, deterministic synchronization, and deterministic memory allocation—as well as other implementation details.
 
-\subsection{Isolated Memory Access}
-\label{sec:threadsasprocs}
-
-In order to achieve the deterministic memory access, 
-\dthreads{} isolates memory accesses among different
-threads between commit points, and commits the updates of each thread deterministically. \dthreads{} is based on the \sheriff{} framework, discussed in Section~\ref{sec:sheriffframework}.
-
-Relying on the \sheriff{} framework, \dthreads{} isolates  memory access among different threads: different threads can only see their own local changes. Additionally, \dthreads{} shims the \texttt{getpid()} function to return a single, globally-shared process identifier. 
-
-\subsubsection{Deterministic Thread Index}
-\label{sec:threadindex}
-
-POSIX does not guarantee deterministic process or thread identifiers. To avoid exposing this nondeterminism to threads running as processes, \dthreads{} shims the \texttt{pthread\_self()} function in order to return an internal thread index.  This internal thread index is managed using a single global variable that is incremented on thread creation.  This unique thread index is also used to manage per-thread heaps and as an offset into an array of thread entries.
-
-\subsubsection{Shared Memory}
-\label{sec:stackandheap}
-
-In order to create the illusion that different threads are sharing the same address space, \dthreads{} uses memory mapped files to share the globals and heap across different processes.
-
-As discussed in Section~\ref{sec:sharedmemory}, \dthreads{} creates two different mappings for both the heap and the globals.  One is a shared mapping, which is used to hold shared state. The other is a private, copy-on-write (COW) per-process mapping that each process works on directly.  Private mappings are linked to the shared mapping through the single fixed-size memory mapped file. Reads initially go directly to the shared mapping,
-but after the first write operation, both reads and writes are entirely private.
-
-Memory allocations are issued from the shared heap memory using a scalable per-thread heap organization loosely based on Hoard~\cite{BergerMcKinleyBlumofeWilson:ASPLOS2000} and built using HeapLayers~\cite{BergerZornMcKinley:2001}.  \dthreads{} divides the heap into a fixed number of sub-heaps (currently 16).  Each thread uses a hash of its thread index to find the appropriate sub-heap.
-
-\subsection{Deterministic Memory Commit}
-\label{sec:sharedmem}
-
 \begin{figure}
 {\centering 
 \includegraphics[width=3.25in]{dthreads/figure/phase}
@@ -41,7 +14,29 @@ Memory allocations are issued from the shared heap memory using a scalable per-t
 }
 \end{figure}
 
-Figure~\ref{fig:phase} illustrates the execution of programs under \dthreads{}.  To guarantee determinism, \dthreads{} isolates memory accesses in parallel phases. In parallel phases, memory accesses work on private copies after the first write operation and updates are not shared across threads.  When a synchronization point is reached, updates are exposed in deterministic order.  This section describes the mechanisms used to guarantee deterministic commit order, and the details of commits to shared memory.
+Figure~\ref{fig:phase} illustrates the execution of programs under \dthreads{}.  To guarantee determinism, \dthreads{} isolates memory accesses in parallel phases (Section~\ref{sec:threadsasprocs}). 
+In parallel phases, memory accesses work on private copies after the first write operation and updates are not shared across threads.  When a synchronization point is reached, updates are exposed in deterministic order (Section~\ref{sec:sharedmem}).
+  
+\subsection{Isolated Memory Access}
+\label{sec:threadsasprocs}
+
+In order to achieve determinism, \dthreads{} isolates memory accesses among different threads between synchronization points, and commits those updates from each thread deterministically at synchronization points. 
+
+\subsection{Isolated Execution}
+
+Relying on the \sheriff{} framework (Section~\ref{sec:sheriffframework}), \dthreads{} isolates memory accesses among different threads between synchronization points: different threads can only see their own local changes. Those changes are merged together at synchronization points in order to achieve the shared memory semantics. 
+
+\subsubsection{Shared Memory}
+\label{sec:stackandheap}
+
+In order to create the illusion that different threads are sharing the same address space, \dthreads{} uses memory mapped files to share the globals and heap across different processes.
+
+As discussed in Section~\ref{sec:sharedmemory}, \dthreads{} creates two different mappings for both the heap and the globals.  One is a shared mapping, which is used to hold shared state. The other is a private, copy-on-write (COW) per-process mapping that each process works on directly.  Private mappings are linked to the shared mapping through a fixed-size memory mapped file. Reads initially go directly to the shared mapping, but after the first write operation, both reads and writes are entirely private until next synchronization point. Then those private changes are committed to the shared mapping in a deterministic way. 
+
+\subsection{Deterministic Memory Commit}
+\label{sec:sharedmem}
+
+This section describes the mechanisms used to guarantee deterministic commit order, and the details of commits to shared memory.
 
 \subsubsection{Fence and Token}
 \label{sec:schedule}
@@ -81,8 +76,7 @@ void waitFence(void) {
 \caption{Pseudocode for the internal fence.\label{fig:internalFence}}
 \end{figure}
 
-Figure~\ref{fig:internalFence} shows the pseudocode code for the internal fence. Threads must wait at the fence until all threads from the previous fence have departed. Then those threads are waiting on the fence until all alive threads  have entered into the same fence(lines 8-11). 
-The last thread entering the fence initiates the departure phase and wakes up all threads on the fence(lines 14-15). As threads leave the fence, they decrement the waiting thread count.  The last thread to leave sets the fence to the arrival phase and wakes any waiting threads (lines 19-21).
+Figure~\ref{fig:internalFence} shows the pseudocode code for the internal fence. Threads must wait at an internal conditional variable until all threads departed from the previous phase ((lines 4-5). Then those threads are waiting at the fence until all alive threads have arrived at the same fence(lines 8-11). The last thread initiates the departure phase and wakes up all threads on the conditional variable(lines 14-15). As threads leave the fence, they decrement the waiting thread count.  The last thread to leave sets the fence to the arrival phase and wakes any waiting threads (lines 19-21).
 
 To reduce overhead, whenever the number of running threads is
 less than or equal to the number of cores, waiting threads block by spinning rather than by invoking relatively expensive cross-process \pthreads{} mutexes. When the number of threads exceeds the number of cores, \dthreads{} falls back to using \pthreads{} mutexes.
@@ -101,10 +95,9 @@ void putToken() {
 \label{fig:token}}
 \end{figure}
 
-Another key mechanism of \dthreads{} is using the token to order memory commits and synchronizations. The token implementation is listed in Figure~\ref{fig:token}. The token is a shared pointer that points to the next runnable thread entry, which guarantees the global order for all operations in serial phases.  
+Another key mechanism of \dthreads{} is token, which \dthreads{} uses to  order memory commits and synchronizations. The token implementation is listed in Figure~\ref{fig:token}. The token is a shared pointer that points to the next runnable thread entry, which guarantees the global order for all operations in serial phases.  
 
-\dthreads{} introduces two subroutines to manage tokens.  The\texttt{waitToken()} function first waits at the internal fence and then waits to acquire the global token
-in order to enter serial mode. The \texttt{putToken()} function passes the token to the next waiting thread. 
+\dthreads{} introduces two subroutines to manage tokens.  The\texttt{waitToken()} function first waits at the internal fence and then waits to acquire the global token in order to enter serial mode. The \texttt{putToken()} function passes the token to the next waiting thread. 
 
 As shown in Figure~\ref{fig:phase}, it is very important for a thread to wait at the internal fence before a thread enters into serial phases or before a thread leaves serial phases, even for a thread that is guaranteed to have the token next. Memory commits by a thread can affect other threads' behavior. 
 
@@ -116,37 +109,36 @@ As shown in Figure~\ref{fig:phase}, it is very important for a thread to wait at
 }
 \end{figure}
 
-Figure~\ref{fig:architecture} shows the steps to capture modifications to shared state and expose them in a deterministic order.  
+Figure~\ref{fig:architecture} shows the steps to track modifications to shared state and expose them in a deterministic order.  
 
-At the beginning of the parallel phases, different threads have a read-only mapping for all shared pages. If a thread writes to a shared page during the parallel phases, this write is trapped in order to create a private copy and a twin page for this shared page. After that, reads and writes on this page happen on the private copy only. Reads go directly to the shared memory and are not trapped.  
+At the beginning of the parallel phases, different threads have a read-only mapping for all shared pages. If a thread writes to a shared page during the parallel phases, this write is trapped in order to create a private copy and a twin page for this shared page. After that, reads and writes on this page happen on the private copy only. For those non-trapped pages, reads go directly to the shared memory.  
 
-In the serial phases, threads first commit their local changes happening in parallel phases one at a time, guided by the global token.  The first thread to commit to a page can directly copy its private copy to the shared state, but subsequent commits must copy only the modified bytes. To find out those modifications, \dthreads{} compares those private copies against those twin pages, creating from the shared mapping before actual modification.  After a thread commits its local changes, it issues synchronizations before it passes the token to next thread. 
+In the serial phases, threads first commit their local changes happening in parallel phases one at a time, guided by the global token.  The first thread to commit to a page can directly copy its private copy to the shared state, but subsequent commits must commit only the modified bytes using the diffing mechanism discussed in Section~\ref{sec:twinning-and-diffing}.  After a thread commits its local changes, it issues synchronizations before it passes the token to next thread. 
 
 In the end of serial phase, every threads have to wait at the fence in order to enter into the next parallel phase. 
 
 \subsection{Deterministic Synchronization}
 \label{sec:synchronization}
 \dthreads{} supports the full range of synchronizations of
-\pthreads{} APIs, including locks, conditional variables, barriers and different types of thread exit. Because the \sheriff{} framework can not provide any determinism guarantee, \dthreads{} re-implements all synchronizations as the following.
+\pthreads{} APIs, including locks, conditional variables, barriers and different types of thread exit. Since \sheriff{} framework can not provide any deterministic guarantee, \dthreads{} re-implements all synchronizations as the following.
 
 \subsubsection{Locks}
 \dthreads{} uses the global token to guide synchronizations during the serial phases. Before a thread is acquiring a lock while current thread does not have the token, it has to wait for the global token. 
 
-\dthreads{} treats multiple locks as the same one, which  possibly compromise the efficiency of programs, it only ends the serial phases when all locks are unlocked. Thus, it is possible for a program with deadlock problems that those deadlock do not occur to \dthreads{} at all. 
+\dthreads{} treats multiple locks as the same one. Thus, it can possibly compromise the efficiency of programs. \dthreads{} only ends the serial phases when all locks are unlocked. Thus, it is possible for a program with deadlock problems that those deadlock do not occur to \dthreads{} at all. 
 
 For the acquisitions of locks, \dthreads{} checks at first 
 whether the current thread is already holding any locks. If not, the thread first waits for the token, commits those changes happened in the last parallel phase to shared state, and begins a new atomic section. Finally, the thread increments the number of locks it is currently holding. The lock count ensures that a thread does not pass the token to the next one until it has released all of the locks.
 
-During the releases of locks, \dthreads{} decrements the lock count at first. A thread does nothing if there are still some locks holding by the current thread, with the lock count not equal to 0. If all locks have been released, \dthreads{} commits the memory changes happened in this serial phase to the shared mapping. Then it passes the global token to the next thread of the token queue and starts a new atomic region. Finally, the thread waits on the internal fence before entering into the next round's parallel phase.
+During the releases of locks, \dthreads{} decrements the lock count at first. A thread does nothing if there are still some locks holding by the current thread, with the lock count not equal to 0. If all locks have been released, \dthreads{} commits the memory changes happened in this serial phase to the shared mapping. Then it passes the global token to the next thread of the token queue and waits on the internal fence before entering into the next round's parallel phase.
 
 \subsubsection{Condition Variables}
 \label{sec:condwait}
 
-Guaranteeing determinism for condition variables is much more complex than for other synchronization operations. The underlying operating system can not guarantee that threads are going to be waken-up in the same order as they wait on a conditional variable. Thus, a naive implementation easily leads to a deadlock problem.
+Guaranteeing determinism for condition variables is much more complex than for other synchronization operations. The underlying operating system can not guarantee that threads are going to be waken-up in the same order as they wait on a conditional variable. Thus, a naive implementation easily leads to a deadlock problem if the first waken-up thread can not get the global token to proceed first.
 
-% pthread_cond_wait: waiting threads are extracted from the 
-% the token queue.
-% Reducing the performance cost, 
+\\\TTTTTTTTONGPING
+
 When a thread calls \texttt{pthread\_cond\_wait}, it first acquires the global token and commits local modifications. It then removes itself from the token queue since threads waiting on condition variables do not participate in the token pass of the serial phase until they are awakened. Then, \dthreads{} adds itself to the conditional variable's waiting queue, decreases the alive thread count (used in the internal fence mechanism), and passes the token to the next thread on the token queue before actually waiting on a real process-shared conditional variable. When a thread is awaken, it should check at first whether the current thread is ready to run or not. For threads waken up by \texttt{pthread\_cond\_signal}, only the first thread in the waiting list can run in order to guarantee the First-In-First-Out order. All threads can run if waken up by \texttt{pthread\_cond\_broadcast}. If a thread is not able to run, it waits on the conditional variable again. If a thread is the candidate thread to be waken up, it waits for the global token because a thread waking up from a conditional variable is supposed to acquire the mutex, which means that it should already have the global token. 
 
 For those waken-up functions, including \texttt{pthread\_cond\_signal} and \texttt{pthread\_cond\_broadcast}, the calling thread first waits for the token, and then commits any local modifications. If no threads are waiting on the condition variable, \dthreads{} passes the token to the next thread immediately. Otherwise, \dthreads{} moves corresponding threads in the condition variable queue to the head of the token queue, marked them as ready, and increments the live thread count correspondingly. To guarantee that threads are waken-up in the same order as they wait on a conditional variable, \texttt{pthread\_cond\_signal} only do this for the first thread in the queue but \dthreads{} wakes up all threads simultaneously. Those not-ready threads immediately wait again after waken-up. In order to improve the performance, those newly waken-up threads are scheduled to run next by simply putting them into the header of the token queue so that the calling thread can pass the token to them. 
@@ -210,11 +202,18 @@ When \texttt{thread\_exit()} is called, the caller first waits for the token and
 \subsection{Deterministic Memory Allocation}
 Programs sometimes rely on the addresses of objects returned by the memory allocator intentionally (for example, by hashing objects based on their addresses), or accidentally. A program with a memory error, like a buffer overflow, will yield different results for different memory layouts.
 
-This reliance on memory addresses can undermine other efforts to provide determinism. For example, CoreDet is unable to fully enforce determinism because it relies on the Hoard scalable memory allocator~\cite{Bergan:2010:CCR:1736020.1736029}. Hoard was not designed to provide determinism and several of its mechanisms, thread id based hashing and non-deterministic assignment of memory to threads, lead to nondeterministic execution in CoreDet for the canneal benchmark.
+This reliance on memory addresses can undermine other efforts to provide determinism. For example, CoreDet is unable to fully enforce determinism because it relies on the Hoard scalable memory allocator~\cite{Bergan:2010:CCR:1736020.1736029}. Hoard was not designed to provide determinism and several of its mechanisms, thread id based hashing and non-deterministic assignment of memory to threads, lead to nondeterministic execution in CoreDet for the Canneal benchmark. To resolve this problem, \dthreads{} employs both deterministic thread index and custom memory allocation mechanism. 
 
+\subsubsection{Deterministic Thread Index}
+\label{sec:threadindex}
 
-To preserve determinism in the face of intentional or inadvertent reliance on memory addresses, we designed the \dthreads{} memory allocator to be fully deterministic. \dthreads{} assigns subheaps to each thread based on its thread index (deterministically assigned; see Section 4.1.2). In addition to guaranteeing the same mapping of threads to subheaps on repeated executions, \dthreads{} allocates superblocks (large chunks of memory) deterministically
-by acquiring a lock (and the global token) on each
+POSIX does not guarantee deterministic process or thread identifiers. To avoid exposing this nondeterminism to threads running as processes, \dthreads{} shims the \texttt{pthread\_self()} function in order to return an internal thread index.  This internal thread index is managed using a single global variable that is incremented on thread creation.  This unique thread index is also used to manage per-thread heaps and as an offset into an array of thread entries.
+
+\subsection{Custom Memory Allocator}
+
+To preserve determinism in the face of intentional or inadvertent reliance on memory addresses, we designed the \dthreads{} memory allocator to be fully deterministic. 
+
+\dthreads{} assigns subheaps to each thread based on its deterministically assigned thread index. In addition to guaranteeing the same mapping of threads to subheaps on repeated executions, \dthreads{} allocates superblocks (large chunks of memory) deterministically by acquiring a lock (and the global token) on each
 superblock allocation. Thus, threads always use the same subheaps, and these subheaps always contain the same superblocks on each execution. The remainder of the memory allocator is entirely deterministic. The superblocks themselves are allocated via mmap: while \dthreads{} could use a fixed address mapping for the heap, we currently simply disable ASLR to provide deterministic mmap calls. If a program does not use the absolute address of any heap object, \dthreads{} can guarantee determinism even with ASLR enabled.
 Hash functions and lock-free algorithms frequently use absolute addresses, and any deterministic multithreading system must disable ASLR to provide deterministic results for these cases.
 

@@ -4,6 +4,7 @@ Writing Multithreaded programs can encounter concurrency errors and performance 
 
 
 \section{Non-deterministic Execution}
+\label{sec:nondeterminism}
 
 \subsection{Background}
 Deterministic behavior of programs is the most desirable behavior: given the same input, a program
@@ -133,7 +134,7 @@ False sharing performance impact for the simple program shown in Figure~\ref{fig
 \end{figure*}
 
 \subsection{Fixing False Sharing}
-There are several ways to fix false sharing related problems after they are found. The basic idea is to prevent multiple threads accessing the same cache line simultaneously.  
+There are several ways to fix false sharing problems after they are identified. The basic idea is to prevent multiple threads accessing the same cache line simultaneously.  
 
 The first way is to change the size of corresponding structure or class. One example of this can be seen in Section~\ref{sec:fsfixexample}.
 
