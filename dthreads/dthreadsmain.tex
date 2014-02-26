@@ -6,11 +6,11 @@ As described in Section~\ref{sec:nondeterminism}, non-determinism can greatly co
 \hspace{1em} \\
 \noindent
 \textbf{Contributions:}
-We develop \textbf{\dthreads{}}, an efficient deterministic runtime system for multithreaded C/C++ applications. \dthreads{} guarantees deterministic execution of multithreaded programs even in the presence of data races (notwithstanding external sources of non-determinism like I/O): given the same sequence of inputs, a program using \dthreads{} always produces the same output. \dthreads{}'deterministic commit protocol not only eliminates data races but also prevents lock-based deadlocks.
+We develop \textbf{\dthreads{}}, an efficient deterministic runtime system for multithreaded C/C++ applications. \dthreads{} guarantees deterministic execution of multithreaded programs even in the presence of data races (notwithstanding external sources of non-determinism like I/O): given the same sequence of inputs, a program using \dthreads{} always produces the same output. \dthreads{}'s deterministic commit protocol not only eliminates data races but also prevents lock-based deadlocks.
 
 \dthreads{} is easy to deploy: it works as a direct replacement for the \pthreads{} library, requiring no code modifications or
-recompilation. \dthreads{} is also very efficient. \dthreads{} leverages process isolation and virtual memory protection to track and isolate concurrent memory updates, based on \sheriff{} framework. Not only does this approach greatly reduce overhead versus approaches that track memory reads and writes, it also eliminates cache-line based false sharing, a notorious performance problem for multithreaded
-programs. These two features combine to enable \dthreads{} to nearly match or even exceed the performance of \pthreads{} for the majority of the benchmarks examined here. \dthreads{} thus marks a significant improvement over the state of the art in deployability and performance, and provides promising evidence that fully deterministic multithreaded programming may be practical.
+recompilation. \dthreads{} is also very efficient. \dthreads{} leverages process isolation and virtual memory protection to track and isolate concurrent memory updates, based on the\sheriff{} framework. Not only does this approach greatly reduce overhead, comparing to approaches that track memory reads and writes, it also eliminates cache-line based false sharing, a notorious performance problem for multithreaded
+programs. These two features combine to enable \dthreads{} to nearly match or even exceed the performance of \pthreads{} for the majority of benchmarks examined here. \dthreads{} thus marks a significant improvement over the state of the art in deployability and performance, and provides promising evidence that fully deterministic multithreaded programming may be practical.
 
 \section{\dthreads{} Overview}
 \input{dthreads/overview}
