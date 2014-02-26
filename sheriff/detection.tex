@@ -5,11 +5,18 @@ This section first describes the basic idea of detecting false sharing.
 \subsection{Basic Idea}
 \label{sec:detectionidea}
 
-There is a false sharing problem when two threads simultaneously access independent data in the same cache line. False sharing does not necessarily cause performance problems. It can greatly degrade performance only when those accesses, caused by threads running on different cores with separate cache, actually cause a big number of cache invalidations. This is our \textbf{basic observation}. 
+There is a false sharing problem when two threads concurrently access independent data within the same cache line. False sharing does not necessarily cause performance problems. It can greatly degrade performance only when those accesses, caused by threads running on different cores with separate cache, actually cause a big number of cache invalidations. This is our \textbf{basic observation}. 
 
-However, it is hard to know where a thread is located in the user space. Moreover, it is unnecessary to know this relationship since the relationship between threads and cores can be changed from one execution to the other. Thus, we make the following \textbf{assumptions}. First, we conservatively assume that all threads are running on different cores, with separate caches. Thus we can report the worst-case results caused by false sharing problems. In order to avoid expensive cache simulation, which can be affected by cache hierarchy, cache capacity and cache eviction rule, we further assume that the data is never evicted from its private cache by cache eviction, with infinite cache. This second assumption allows us to predict the cache invalidations based on memory accesses only, no need to think about cache eviction.   
+But it is not a easy task to know how many cache invalidations actually happen on a specific cache line. Generally, there are two ways to know this type of information. The first approach should rely on the underlying hardware. For example, we may rely on specific hardware performance counters, existing in some special hardware but not all, to know how many cache invalidations happening on a specific cache line. However, relying on the hardware-based approach to track cache invalidations can greatly reduce a tool's portability, which can not simply apply the same tool to different hardware. Also, those hardware-based mechanisms may not present complete invalidation information on all cache lines. Most of existing hardwares only sample those information for a performance purpose. 
 
-Based on our basic observation, detecting false sharing problems turns into locating cache lines with a big number of cache invalidations. Cache invalidations are invoked by cache coherence protocol, the protocol used to ensure the coherence of data in the multiple-processor system. Based on our assumptions, there is a cache invalidation if a processor writes a cache line after another thread's access on the same cache line. Because the last thread accessing this cache line creates a copy of the same cache line on its running core's private cache (first assumption) and  holds this copy(second assumption), this write operation definitely cause a cache invalidation before or after this write operation, depending on different cache coherence protocols. 
+The second approach is to utilize simulation to simulate the activity on different cache lines, thus provide some simulation results on cache invalidations. Developing simulation has to know all hardware-related information, including cache hierarchy, cache capacity and cache eviction rule, and the relationship between a thread and a specific core.  However, simulation-based approaches are normally very slow and cannot be generalized to different hardware environment. 
+
+We avoid these approaches because of their unavoidable shortcomings. For example, it is hard to know where a thread is located in the user space. Moreover, it is unnecessary to know this relationship since the relationship between threads and cores can be changed from one execution to the other. Thus, we make the \textbf{ first assumption}: all threads are running on different cores, with separate caches. Thus we can report the potential worst-case results that can caused by false sharing problems inside. Also, using this assumption can avoid knowing actual hardware cache hierarchy. 
+
+But this simple assumption is not enough to know how many cache invalidations happening on a cache line. For example, cache invalidations on a cache line are also affected by a cache's capacity and specific eviction rule. Thus, we further assume (\textbf{second assumption}) that the data is never evicted from its private cache by cache eviction. This means that all caches have infinite capacity. 
+
+These two assumptions allow us to get cache invalidations based on memory accesses only, no need to think about hardware information. Based on these assumptions, there is a cache invalidation if a processor writes a cache line after another thread's access on the same cache line. Because the last thread accessing this cache line creates a copy of the same cache line on its running core's private cache (first assumption) and  holds this copy(second assumption), this write operation definitely cause a cache invalidation before or after this write operation, depending on different cache coherence protocols. 
+
 
 \begin{figure}[!t]
 \centering
@@ -19,7 +26,8 @@ To detect false sharing, each cache line of the globals and heap maintains a cac
 \end{figure}
 
 
-To locate cache lines with a big number of cache invalidation, we maintain a cache line status word for each cache line in the globals and heap, shown in Figure~\ref{fig:cachelinestatusword}. We share the similar mechanism as another concurrent work of Zhao et.al. ~\cite{qinzhao}. However, the detailed implementation is totally different. Zhao et.al. utilize the detailed ownership bitmap and last thread bitmap to precisely track the cache invalidation, which can even track how many cache invalidations may happen in a write operation. However, their design can not easily scale to more than 32 threads, requiring more memory overhead caused by more bits and more checking performance overhead. Also, their approach miss one important factor - how many cache invalidations happening on a specific cache line. Without this information, it is impossible to pinpoint false sharing problems that can cause performance problems.   
+To locate cache lines with a big number of cache invalidations, we maintain a cache line status word for each cache line in the globals and heap, shown in Figure~\ref{fig:cachelinestatusword}. We share a similar mechanism as another concurrent work of Zhao et.al. ~\cite{qinzhao}. 
+However, the detailed implementation is totally different. Zhao et.al. utilize the detailed ownership bitmap and last thread bitmap to precisely track the cache invalidation, which can even track how many cache invalidations may happen in a write operation. However, their design cannot easily scale to more than 32 threads, requiring more memory overhead caused by more bits and more checking performance overhead. Also, their approach miss one important factor - how many cache invalidations happening on a specific cache line. Without this information, it is impossible to pinpoint false sharing problems that can cause performance problems.   
 Our approach overcomes all these shortcomings, by only tracking the last thread index and the number of cache invalidations. Thus, we can rank the seriousness of false sharing problems based on the number of cache invalidations. 
 
 \subsubsection{Accurate Detection}
@@ -27,18 +35,18 @@ Our approach overcomes all these shortcomings, by only tracking the last thread 
 
 Accurate detection implies that we only report those false sharing problems that can cause performance problems. 
 
-First, we only report those problems that can cause performance problems. This has been resolved by only reporting false sharing with a big number of cache invalidations. 
+First, we only report those problems that can cause performance problems. We only report false sharing problems with a big number of cache invalidations, thus can potentially cause performance problems. We actually provide an adjustable option so that users can easily control through a command line. Note that this method is different with some existing tools, like PTU~\cite{detect:ptu, detect:intel}. PTU aggregates memory accesses without considering memory reuses and access interleaving, leading to numerous false positives. 
 
-Second, this also implies that we should be able to differentiate false sharing from true sharing. As we all know, true sharing also can cause cache invalidations, which is the essence to have coherence protocol. In order to differentiate false sharing with true sharing, we further  track word-level access information for those cache lines involved in false sharing: how many reads or writes to each word by which thread. When a word is accessed by multiple threads, we mark the origin of this word as a shared access and do not track threads for further accesses to it. This information lets us accurately distinguish false sharing from true sharing in the reporting phase. It also helps diagnose where actual false sharing occurs when there are multiple fields or multiple objects in the same cache line, as this can greatly reduce the manual effort required to fix the false sharing problems.
+Second, we are able to differentiate false sharing from true sharing. As we all know, true sharing also can cause cache invalidations, which is the essence to have the coherence protocol. In the tracking phase, we do not differentiate the false sharing from true sharing since this involves in a lot of memory and performance overhead, which causes the scalability issues~\cite{qinzhao}. In order to differentiate false sharing with true sharing, we track word-level accesses for those cache lines involved in false sharing: how many reads or writes to each word by which thread. When a word is accessed by multiple threads, we mark a word as a shared access by different threads, avoiding track threads for further accesses. This design lets us accurately distinguish false sharing from true sharing in the reporting phase, while do not have the scalability issue. It also helps diagnose where actual false sharing occurs when there are multiple fields or multiple objects in the same cache line, as this can greatly reduce the manual effort required to fix the false sharing problems.
   
-Third, we should avoid pseudo false sharing (false positives) caused by memory reuses.  We update recording information at memory de-allocations for those objects without false sharing problems; heap objects involved in false sharing are never reused so that they can be reported in the end or on demand. 
+Third, we should avoid pseudo false sharing (false positives) caused by memory reuses.  We update information at memory de-allocations for those objects without false sharing problems; heap objects involved in false sharing are never reused so that they can be reported in the end or on demand. 
 
 \subsubsection{Precise Detection}
 \label{sec:precisedetect}
 
-Precise detection implies that we can precisely point out where the problem is. Thus, programmers can leverage on that to identify and correct false sharing. 
+Precise detection implies that we can precisely point out where the problem is. Thus, programmers can leverage on that to identify and correct false sharing problems. 
 
-We identify globals directly by using debug information that associates the address with the name of the global. In order to precisely report the origins of heap objects with false sharing problems, we collect callsite information for each heap object by intercepting memory allocations and deallocations, and report to users about the origins of false sharing objects. 
+We identify globals directly by using debug information that associates the address with the name of global variables. In order to precisely report the origins of heap objects with false sharing problems, we collect callsite information for each heap object by intercepting memory allocations and deallocations, and report to users about the origins of false sharing objects. 
 
 Also, we present the word-level accesses information to users so that the exact variables or fields that cause performance problems can be determined precisely. 
 
@@ -47,13 +55,14 @@ Also, we present the word-level accesses information to users so that the exact 
 
 We provide two different ways to report those false sharing problems. Normally, we can report those false sharing problems in the end of a program. However, this way does not work for those long-running applications. Thus, we provide a on-demand way of reporting. User can send a specified signal to a corresponding applications. By intercepting those signals, we can report false sharing problems on demand. 
 
-In order to report false sharing problems, we scan cache line status words of the globals and heaps and only report those false sharing problems that can possibly cause performance problems, based on a pre-defined threshold on the number of cache invalidations.  
+In order to report false sharing problems, we scan cache line status words of all memory, including the globals and heaps,  and only report those false sharing problems that can possibly cause performance problems, based on a pre-defined/adjustable threshold on the number of cache invalidations.  
 
 \subsection{Detailed Implementations}
 
 \label{sec:sheriffdetect}
-We provide a tool, \SheriffDetect{}, to detect false sharing problems based on the \sheriff{} framework. The basic idea of \SheriffDetect{} is discussed in Section~\ref{sec:detectfalseshare}. More details is discussed in the following. 
+We provide a tool, \SheriffDetect{}, to detect false sharing problems based on the \sheriff{} framework. More details are discussed in the following. 
 
+%%% Tongping Liu
 \subsubsection{Tracking Memory Accesses}
 \label{sec:memoryaccesses}
 
@@ -61,7 +70,7 @@ We provide a tool, \SheriffDetect{}, to detect false sharing problems based on t
 \centering
 \includegraphics[width=5in]{sheriff/figure/sheriffdetective.pdf}
 \caption{
-Overview of \SheriffDetect{}’s operation. \SheriffDetect{} extends \Sheriff{} with sampling, per-cacheline status arrays, and per-word status arrays. For clarity of
+Overview of \SheriffDetect{}’s operations. \SheriffDetect{} extends \Sheriff{} with sampling, per-cacheline status arrays, and per-word status arrays. For clarity of
 exposition, the diagram depicts just one cache line per page and two words per cache line.\label{fig:sheriffdetect}}
 \end{figure*}
 
