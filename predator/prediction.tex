@@ -20,16 +20,12 @@ and the start of cache line.
 The appearance of false sharing depends on 
 the alignment between objects and corresponding cache lines.
 A real example, linear\_regression, is shown in Figure~\ref{fig:perfsensitive}.
-For this benchmark,
-when the offset of the starting address between the potentially falsely-shared object and corresponding cache lines 
-is $0$ or $56$ bytes, 
+For this benchmark, when the offset of the starting address between the potentially falsely-shared object and corresponding cache lines is $0$ or $56$ bytes, 
 there is no false sharing. 
-When the offset is $24$ bytes, we see the most severe performance effect caused 
-by false sharing. 
+When the offset is $24$ bytes, we see the most severe performance effect caused by false sharing. 
 The performance difference between these two scenarios can be as large as $15\times$. 
-Existing detection tools can only report observed false sharing.
-For this case, they may miss a very severe false sharing problem that could occur in the wild if the offset of the starting 
-address was $0$ bytes or $56$ bytes in their test environment.
+
+Existing detection tools can only report observed false sharing. For this case, they may miss a very severe false sharing problem that could occur in the wild if the offset of the starting address was $0$ bytes or $56$ bytes in their test environment.
 \Predator{} overcomes this shortcoming by accurately predicting potential false sharing.
 
 \begin{figure*}
@@ -54,10 +50,7 @@ address was $0$ bytes or $56$ bytes in their test environment.
 \label{fig:potentialfalsesharing}
 \end{figure*}
 
-\Predator{} predicts {\it potential false sharing}, the type of
-false sharing that does not 
-manifest in the current execution but may appear and greatly affect programs' performance
-in a slightly different environment.
+\Predator{} predicts {\it potential false sharing}, the type of false sharing that does not manifest in the current execution but may appear and greatly affect programs' performance in a slightly different environment.
 
 Figure~\ref{fig:potentialfalsesharing} shows a simplified example why occurrences of false sharing 
 can change in different situations.

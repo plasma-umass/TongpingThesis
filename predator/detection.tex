@@ -1,25 +1,17 @@
 \label{sec:detection}
 
-We first describe \Predator{}'s false sharing detection mechanism, which consists of both compiler and runtime system
-components. Section~\ref{sec:prediction} then explains how \Predator{} predicts potential false sharing based on a single execution.
+We first describe \Predator{}'s false sharing detection mechanism, which consists of both compiler and runtime system components. Section~\ref{sec:prediction} then explains how \Predator{} predicts potential false sharing based on a single execution.
 
 \subsection{Overview}
 \label{sec:overview}
-False sharing only occurs when two threads
-simultaneously access independent data in the same cache line.
-In the remainder of this paper, we assume for the purposes of exposition that each thread runs on a 
-distinct core with its own private cache.
+As described in \label{sec:detectionidea}, we can measure cache invalidations based only on memory accesses history of each cache line if we are using two assumptions there. 
 
-Given this assumption, we observe that 
-if a thread writes a cache line after other threads have 
-accessed the same cache line, this write operation most likely causes at least a cache invalidation. Drawing from this \textbf{basic observation}, \Predator{} tracks cache invalidations of all cache lines and ranks the severity of performance degradation of any detected false sharing problems according to the number of cache invalidations. 
+Thus, if a thread writes a cache line after other threads have accessed the same cache line, this write operation most likely causes at least a cache invalidation. Drawing from this \textbf{basic observation}, \Predator{} tracks cache invalidations of all cache lines and ranks the severity of performance degradation of any detected false sharing problems according to the number of cache invalidations. 
 % by keeping track of accesses from different threads. 
  
-In order to track cache invalidations, \Predator{} relies on the compiler instrumentation to track memory accesses of applications. The design tradeoff of choosing compiler instrumentation has been discussed in Section~\ref{sec:instrumentationtradeoff}. A compiler can easily identify read or write accesses. However, a compiler does not know how and when those instructions are being executed, since that depends on a specific execution, input, and runtime environment.
+To track memory accesses, \Predator{} relies on the compiler instrumentation. The design tradeoff of choosing compiler instrumentation has been discussed in Section~\ref{sec:instrumentationtradeoff}. A compiler can easily identify read or write accesses. However, a compiler does not know how and when those instructions are being executed, since that depends on a specific execution, input, and runtime environment.
 
-Therefore, \Predator{} combines a runtime system with compiler
-instrumentation to track cache invalidations: the compiler
-instruments memory accesses so the runtime system is notified when an access is executed (see Section~\ref{sec:compiler}), and the runtime system is responsible for collecting and analyzing actual memory accesses to detect and report false sharing (see Section~\ref{sec:runtime}).
+Therefore, \Predator{} combines a runtime system with compiler instrumentation to track cache invalidations: the compiler instruments memory accesses so the runtime system is notified when an access is executed (see Section~\ref{sec:compiler}), and the runtime system is responsible for collecting and analyzing actual memory accesses to detect and report false sharing (see Section~\ref{sec:runtime}).
 
 \subsection{Compiler Instrumentation}
 \label{sec:compiler}
@@ -28,8 +20,7 @@ instruments memory accesses so the runtime system is notified when an access is 
 It traverses all functions one by one and searches for memory accesses to global and heap variables.  For each memory access, \Predator{} instruments a function call to invoke the runtime system with the memory access address and access type. \Predator{} currently omits accesses to stack variables by default because stack variables are normally used for thread local storage and therefore do not normally introduce false sharing. However, instrumentation on stack variables
 can always be turned on when necessary.
 
-The instrumentation pass is placed at the very end of the LLVM
-optimization passes so that only those memory accesses surviving all previous LLVM optimization passes are instrumented.  This technique is similar to the one used by AddressSanitizer~\cite{AddressSanitizer}.
+The instrumentation pass is placed at the very end of the LLVM optimization passes so that only those memory accesses surviving all previous LLVM optimization passes are instrumented.  This technique is similar to the one used by AddressSanitizer~\cite{AddressSanitizer}.
 
 \subsection{Runtime System}
 \label{sec:runtime}
@@ -41,20 +32,6 @@ objects, \Predator{} reports the callsite stack for their allocations, their add
 \Predator{} only reports those global variables or heap objects on cache lines with a large number of cache invalidations. It is critical to track cache invalidations effectively so that \Predator{} delivers accurate reports.
 \Predator{} achieves this goal by maintaining a two entry cache history table for each cache line.  In this table,
 each entry has two fields: the thread ID and access type (read or write). The thread ID is used to identify the origin of each access. As stated earlier, only accesses from different threads can cause cache invalidations.
-
-\begin{comment}
-\begin{table}
-\centering
-  \begin{tabular}{ l | r }
-    \hline
-    {Thread ID} & {Type of Access} \\ \hline
-    \hline
-     &   \\ \hline
-     &   \\ \hline
-  \end{tabular}
-  \caption{Two-entries-cache-history table for every cache line. \label{table:cachehistory}}
-\end{table} 
-\end{comment}
 
 For every new access to a cache line $L$, \Predator{} checks $L$'s history table $T$ to decide whether there is a cache invalidation based on the following rules.  Note that table $T$ only has two statuses: full and not full.  There is no ``empty'' status since every cache invalidation should replace this table with the current write access.
 
@@ -101,28 +78,25 @@ In order to accurately differentiate those false sharing problems with true shar
 
 
 \item
-As described in Section~\ref{}, \predator{} relies on \texttt{backtrace()} function in the \texttt{glibc} library to obtain the whole callsite stack, which is slower but much more robust to be used than the ways used in \SheriffDetect{}.
-
+\predator{} relies on \texttt{backtrace()} function in the \texttt{glibc} library to obtain the whole callsite stack, which is slower but much more robust to be used than the ways used in \SheriffDetect{}.
 
 
 \item
 For every access, \Predator{} needs to lookup the corresponding cache line's metadata 
 in order to store detailed information or update access counters. Because this operation is so frequent,
  lookups need to be very efficient.
-Like 
-AddressSanitizer~\cite{AddressSanitizer} and other systems~\cite{qinzhao,Valgrind},
+Like AddressSanitizer~\cite{AddressSanitizer} and other systems~\cite{qinzhao,Valgrind},
 \Predator{} uses a shadow memory mechanism to store metadata for every piece of application data. 
 Thus, \Predator{} can compute and locate corresponding metadata directly via address arithmetic.
 
 \item
-In order to support shadow memory, \Predator{} uses a predefined starting address and fixed size for its heap.  It also contains a custom memory allocator, which is built with Heap Layers~\cite{heaplayers} using a ``per-thread-heap'' mechanism similar to that used by Hoard~\cite{Hoard}.  In this allocator, memory allocations from different threads never occupy the same physical cache line, which automatically avoids false sharing among different objects.  However, using this custom memory allocator implies that false sharing caused by a memory allocator cannot be detected by \Predator{}. The way to solve any such false sharing problem is to use a better allocator, since allocators like Hoard already avoid this kind of false sharing.
+In order to support shadow memory, \Predator{} uses a predefined starting address and fixed size for its heap.  It also contains a custom memory allocator, which is described in Section~\ref{sec:customheap}.  However, using this custom memory allocator also implies that false sharing caused by a memory allocator cannot be detected by \Predator{}. The way to solve any such false sharing problem is to use a better allocator, since allocators like Hoard already avoid this kind of false sharing.
 
 \end{itemize} 
  
 \subsection{Optimizations}
 \label{optimization}
-Tracking every memory access can be extremely expensive, thus 
-\Predator{} utilizes the following mechanisms to further reduce overhead.
+Tracking every memory access can be extremely expensive, thus \Predator{} utilizes the following mechanisms to further reduce overhead.
 
 \subsubsection{Threshold-Based Tracking Mechanism}
 \label{sec:thresholdtracking}
@@ -181,8 +155,6 @@ uses an atomic compare-and-swap to set the cache tracking address for this cache
 the shadow mapping.
 After {\it CacheWrites} on a cache line reaches the {\it Tracking-Threshold}, 
 all read and write accesses on this cache line are tracked.
-%Cache invalidations are also computed based on cache line history table of corresponding
-%cache line, shown in Table~\ref{table:cachehistory}. 
 
 
 \subsubsection{Selective Compiler Instrumentation}
@@ -190,11 +162,8 @@ all read and write accesses on this cache line are tracked.
 
 \Predator{} relies on instrumentation to provide memory access information to the runtime system 
 and detects false sharing based on the sequences of memory accesses on every cache line. 
-The performance overhead of a specific program is always proportional to 
-the degree of instrumentation: more 
-instrumentation means more performance overhead. 
-Thus, \Predator{} provides a flexible framework to instrument programs 
-depending on the performance requirements of the user.
+The performance overhead of a specific program is always proportional to the degree of instrumentation: more instrumentation means more performance overhead. 
+Thus, \Predator{} provides a flexible framework to instrument programs depending on the performance requirements of the user.
 
 Currently, \Predator{} only adds instrumentation once for each type of memory access on each address 
 to the same basic block. 

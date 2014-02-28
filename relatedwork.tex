@@ -23,7 +23,6 @@ Revisions~\ref{Burckhardt:2010:CPR:1869459.1869515}
 \section{Deterministic Multithreading}
 The research on deterministic multithreading is a very active area these years. We describe some software-only, non- language-based approaches here.
 
-\subsection{Software-only deterministic system}
 Grace prevents deadlocks, race conditions, ordering and atomicity violations errors for those fork-join multithreaded programs by imposing a sequential semantics at join points~\cite{grace}. However, Grace does not support programs with interthread communications, such as conditional variables and barriers.
 
 CoreDet is a compiler-based approach to 
@@ -51,16 +50,12 @@ memory allocations, which can not guarantee determinism for programs with memory
 % thread interleavings. By contrast, \dthreads{} guarantees that only changes to
 % the sequence of synchronization operations affect the order in which updates 
 % are applied.
-dOS~\cite{deterministic-process-groups} is an extension to CoreDet
-that uses the same deterministic scheduling framework.  dOS 
-supports deterministic communication for those threads and processes inside the same
+dOS~\cite{deterministic-process-groups} is an extension to CoreDet that uses the same deterministic scheduling framework.  dOS supports deterministic communication for those threads and processes inside the same
 deterministic process groups (DPGs) and handle those external non-determinism by recording and
 replaying interactions across DPG boundaries. 
 
-Determinator is a microkernel-based operating system that enforces
-system-wide determinism~\cite{efficient-system-enforced}.
-Determinator provides separate address spaces and supports interprocess
-communications at explicit synchronizaton points. 
+Determinator is a microkernel-based operating system that enforces system-wide determinism~\cite{efficient-system-enforced}. Determinator provides separate address spaces and supports interprocess
+communications at explicit synchronization points. 
 Determinator is a proof-of-concept system, which can not support the whole rage of
 threads APIs and can not work on legacy programs.  
 
@@ -73,8 +68,6 @@ Peregrine~\cite{peregrine:sosp11} is a system based on TERN, which tries to reco
  memory accesses orders for racy portion and apply those schedules for future runs possibly.
 However, both TERN and Peregrine do not support complete determinism (using a best effort)
 and requires program annotations. 
-
-\subsection{Hardware-related deterministic System}
 
 \section{False Sharing}
 
