@@ -120,7 +120,7 @@ If the threshold is not reached, there is no need to check the corresponding {\i
 Figure~\ref{fig:algorithm} illustrates the detailed mechanism.
 
 \begin{figure}[!t]
-\begin{lstlisting}
+\begin{lstlisting}[style=tt]
 void HandleAccess(unsigned long addr, bool isWrite) {
  unsigned long cacheIndex=addr>>CACHELINE_SIZE_SHIFTS;
  cachetrack *track=NULL;

@@ -103,12 +103,29 @@ In this section, we verify whether prediction can always  reveal un-observed fal
 
 The linear\_regression benchmark is selected here because of the following two reasons: (1) The false sharing problem of this benchmark cannot be detected without prediction; (2) False sharing severely degrades performance when it actually occurs. Hence, it is a serious problem that should always be detected. 
 
-\begin{figure}[!t]
-{\centering
-\subfigure{\lstinputlisting[numbers=none,frame=none,boxpos=t]{predator/figure/linearregression.psedocode}}
+\begin{figure}
+\begin{lstlisting} [style=tt]
+struct
+{
+  pthread_t tid;  POINT_T *points;
+  int num_elems;  long long SX;
+  long long SY;   long long SXX;
+  long long SYY;  long long SXY;
+} lreg_args;
+
+void * lreg_thread ( void * args_in ) {
+  struct lreg_args * args = args_in ;
+  for(i=0; i<args->num_elems; i++) {
+    args->SX+=args->points[i].x;
+    args->SXX+=args->points[i].x*args->points[i].x;
+    args->SY+=args->points[i].y;
+    args->SYY+=args->points[i].y*args->points[i].y;
+    args->SXY+=args->points[i].x*args->points[i].y;
+  }
+}
+\end{lstlisting}
 \caption{The false sharing problem inside the linear\_regression benchmark: multiple threads simultaneously update their entries in lreg\_args.
 \label{fig:linearregression}}
-}
 \end{figure}
 
 Figure~\ref{fig:linearregression} shows the data structure and the source code exercising appropriate false sharing. The size of this data structure, lreg\_args, is $64$ bytes 

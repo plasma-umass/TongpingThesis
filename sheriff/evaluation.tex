@@ -103,7 +103,7 @@ We manually fix these four false sharing problems based on reports of \SheriffDe
 In \texttt{reverse\_index} and \texttt{word\_count}, multiple threads repeatedly modify the same heap object. The pseudo code for these two benchmarks are listed in Figure~\ref{fig:reverseindex}. We may use thread-local copy to avoid the false sharing problem here; each thread can modify a temporary variable first and then modify the global \texttt{use\_len} in the end of thread.
 
 \begin{figure}[!t]
-\begin{lstlisting}
+\begin{lstlisting}[style=tt]
 int * use_len;
 void insert_sorted(int curr_thread) {
    ......	
@@ -121,7 +121,7 @@ modify the \texttt{use\_len} array.
 Two different threads write to the same cache line when the structure \texttt{lreg\_args} is not aligned with corresponding cache lines. This problem can be avoided easily by padding the structure \texttt{lreg\_args}.
 
 \begin{figure}[!t]
-\begin{lstlisting}
+\begin{lstlisting}[style=tt]
 struct {
   long long SX;
   long long SY;

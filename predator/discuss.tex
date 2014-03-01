@@ -1,59 +1,19 @@
 \label{sec:discussion}
 
-\subsection{Prediction Limitation}
-\Predator{} can accurately and precisely locate false sharing problems if they occur
-in an execution. 
-As discussed in Section~\ref{sec:intro}, many dynamic properties
-can affect occurrences of false sharing. 
-\Predator{} can predict potential false sharing caused by the change of cache line size 
-or an object's starting address.
-However, it cannot predict false sharing problems possibly caused by two random objects,
-either global variables or heap objects, if they are not placed in the same or adjacent cache lines.
-In fact, different compilers and memory managers can create 
-different memory layout for global variables and heap objects. 
-For example, two global variables $A$ and $B$, which are not placed 
-on adjacent cache lines by $llvm$ compiler, may be placed 
-close to each other by another compiler, and thus lead to possible false sharing. 
-It is impossible to predict the memory layout created by different compilers and memory managers.
+\subsection{Instrumentation Selection}
+\label{sec:instrumentationtradeoff}
+Dynamic binary instrumentation and compiler-based instrumentation are two alternative approaches for performing instrumentation~\cite{Instrumentation}. They exhibit different tradeoffs of performance and generality. Dynamic binary instrumentors, such as Valgrind~\cite{Valgrind}, Pin~\cite{Pin}, and DynamoRIO~\cite{DynamoRIO}, typically analyze the program's code just before execution in order to insert instrumentation. They introduce significant performance overhead, mostly caused by run-time encoding and decoding, but the fact that they operate directly on binaries makes them extremely convenient. By contrast, compiler instrumentation inserts instrumentation in the compilation phase, which requires re-compilation of all source code. 
+\Predator{} employs compiler-based instrumentation both because of its better performance and its greater flexibility, as discussed in Section~\ref{sec:selectinstrumentation}.
 
-\subsection{Approach Applicability}
-The approach of combining compiler instrumentation and runtime system 
-does not rely on the support of specific hardware, OS and libraries.
-Hence, it is applicable to detect and predict false sharing in different levels of 
-software stack in theory, including hypervisors, operating systems, libraries or 
-applications using different threading libraries.
-However, some components of \Predator{} has to be 
-modified correspondingly instead of applying to them directly.
-For example, \Predator{} has to identify computing unit of all memory accesses, 
-e.g., different virtual machines, tasks or threads. 
-Different system has their own specific calls and must be adjusted correspondingly.
-In order to precisely report origins of culprit false sharing, \Predator{} intercepts 
-memory allocation and de-allocation functions. 
-Those interceptions should also be changed correspondingly for different system too.
-Extending \Predator{} to different levels of software stack will be the future work for us.
+\subsection{Effectiveness}
+Several factors can affect \Predator{}'s ability to identify false sharing.
 
-\subsection{Performance Improvement}
-\Predator{} runs around $6.6$X slower on average for all evaluated benchmarks. 
-In our current implementation, every memory access is instrumented with a library call 
-in order to notify the runtime system for tracking.
-A library call entails not only normal function call overhead but also 
-overhead related to Global Offset Table(GOT) and/or Procedure Linkage Table (PLT) look-up. 
-It is too heavy for simple computations, such as the following:
 
-\begin{itemize}
-\item
-As discussed in Section~\ref{sec:thresholdtracking}, 
-before the number of writes on a cache line reaches {\it Tracking-Threshold}, 
-\Predator{} simply increments this cache line's write counter for writes
-and ignores reads.
-\item
-In sampling mechanism discussed in Section~\ref{sec:sample}, 
-most accesses (99\%) only needs to increment access counters of cache lines.
-\end{itemize}
+\emph{Different Inputs.} Different inputs trigger distinct executions of a program. If a specific input does not exercise the code with false sharing problems, \Predator{} cannot necessarily detect them. However, \Predator{} does generalize over inputs to find latent false sharing problems on those exercised code. When any reasonably representative set of inputs are exercised, as is required by any testing regime, \Predator{} can effectively predict false sharing.
 
-These computations only involve in checking or updating operations,
-normally taking only a few CPU cycles to finish. 
-In the future, we plan to further improve the performance of \Predator{} 
-by instrumenting those simple computations directly, 
-instead of using library calls to notify runtime system.
+\emph{Input Size.} Input size may affect detection results.  As discussed in Section~\ref{optimization}, \Predator{} introduces several threshold values to reduce tracking overhead, which can be adjusted as needed. If the input size is so small that it cannot generate enough false sharing events to cross the predefined thresholds, then the detection mechanism will not be triggered. In such cases, \Predator{} will miss actual cases of false sharing. However, realistically large inputs should be enough to trigger \Predator{}'s detection mechanisms. In our experience, running applications for at least 150 seconds is sufficient to expose false sharing problems. 
 
+\emph{Hardware Independence.}  \Predator{}'s compiler-based approach make it independent of the underlying hardware platform. This approach increases generality, but may lead it to over-report false sharing. \Predator{} conservatively assumes that different threads are running on different cores and detects false sharing problems based on possible cache invalidations. However, if multiple threads involved in false sharing are on the same core, then there will be no performance impact. 
+
+%\subsection{Prediction Limitations} 
+%\Predator{} can accurately and precisely predict a false sharing problem even when it does not occur. But \Predator{} cannot predict a false sharing problem if the code with false sharing is not exercised at all. Also, \Predator{} may miss potential false sharing problems between two objects brought by a different compiler or memory allocator. 
