@@ -8,7 +8,7 @@ This section further motivates predictive false sharing and explains how to supp
 
 \begin{figure}[!t]
 \begin{center}
-\includegraphics[width=3.3in]{predator/figure/perfsensitive}
+\includegraphics[width=6in]{predator/figure/perfsensitive}
 \end{center}
 \caption{
 Performance of the linear\_regression benchmark from the Phoenix benchmark suite.
@@ -34,13 +34,13 @@ Existing detection tools can only report observed false sharing. For this case, 
    \label{fig:nofs}
    \includegraphics[width=0.24\textwidth]{predator/figure/Potential1}
 }%
-\hspace{30pt}
+\hspace{10pt}
 \subfigure[False sharing with larger cache size]{%
    \label{fig:fslarger}
    \includegraphics[width=0.24\textwidth]{predator/figure/Potential2}
 }%
-\hspace{30pt}
-\subfigure[False sharing with different alignment]{%
+\hspace{10pt}
+\subfigure[False sharing with different memory layout]{%
    \label{fig:fsnoalignment}
    \includegraphics[width=0.36\textwidth]{predator/figure/Potential3}
 }%
@@ -210,7 +210,7 @@ starting addresses of objects.
 
 \begin{figure}
 \begin{center} 
-\includegraphics[width=3.3in]{predator/figure/trackpotential}
+\includegraphics[width=6in]{predator/figure/trackpotential}
 \end{center}
 \caption{Determining a virtual line with size $sz$ according to hot accesses.}
 \label{fig:trackpotential}

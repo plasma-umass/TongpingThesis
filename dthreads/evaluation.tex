@@ -35,6 +35,7 @@ We first experimentally verify \dthreads{}' ability to ensure determinism by exe
 
 \begin{table*}[!t]
 \centering
+\resizebox{\columnwidth}{!}{
 \begin{tabular}{l|rrr|rr|l}
 {\bf \small Benchmark} & {\bf \small CoreDet} & {\bf \small \dthreads{}} & {\bf \small \pthreads{}} & $\frac{\mbox{\bf \small CoreDet}}{\mbox{\bf \small \pthreads{}}}$ & $\frac{\mbox{\small \bf \dthreads{}}}{\mbox{\small \bf \pthreads{}}}$ & {\bf \small Input} \\
 
@@ -55,6 +56,7 @@ We first experimentally verify \dthreads{}' ability to ensure determinism by exe
 {\bf \small swaptions} & 35.21 & 4.18 & 3.88 & $8.42\times$ & $0.93\times$ & {\it \small -ns 128 -sm 50000 -nt 8} \\
 \hline
 \end{tabular}
+}
 \caption{Benchmarks: execution time (in seconds) and input parameters.\label{tbl:benchmarks}}
 \end{table*}
 
@@ -92,6 +94,7 @@ Most benchmarks examined here contain either a small number of transactions, thu
 
 \begin{table*}[!t]
 \centering
+\resizebox{\columnwidth}{!}{
 \begin{tabular}{l|rrrrr}
 & {\bf \small Serial Phase} & {\bf \small Transactions} & {\bf \small TransLength} & {\bf \small DirtyPages} & {\bf \small DirtyPages}
 \\
@@ -118,6 +121,7 @@ Most benchmarks examined here contain either a small number of transactions, thu
 \small \textbf{swaptions} & 0 & 24 & 163 & 867 & 0\\
 \hline
 \end{tabular}
+}
 \caption{Benchmark characteristics.\label{tbl:characteristics}}
 \end{table*}
 

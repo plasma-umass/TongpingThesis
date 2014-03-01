@@ -43,8 +43,10 @@ For every false sharing problem, \Predator{} reports source code information and
 \subsubsection{Benchmarks}
 \label{sec:benchmarks}
 
-\begin{table*}[!t]
-{\centering\begin{tabular}{l|r|r|r|r|r}\hline
+\begin{table}[!t]
+{\centering
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{l|r|r|r|r|r}\hline
 {\bf \small Benchmark} & {\bf \small Source Code} & {\bf \small New} & {\bf \small Without Prediction} &{\bf \small With Prediction} & {\bf \small Improvement} \\
 \hline
 \small \textbf{histogram} & {\small histogram-pthread.c:213} & \cmark{} &\cmark{} & \cmark{} & 46.22\%\\
@@ -55,10 +57,10 @@ For every false sharing problem, \Predator{} reports source code information and
 \small \textbf{streamcluster} & {\small streamcluster.cpp:985} &  & \cmark{} & \cmark{} &7.52\% \\
 \small \textbf{streamcluster} & {\small streamcluster.cpp:1907} & \cmark{} & \cmark{} & \cmark{} & 4.77\%\\
 \hline
-\end{tabular}
+\end{tabular} }
 \caption{False sharing problems in the Phoenix and PARSEC benchmark suites. \label{table:detection}}
 }
-\end{table*}
+\end{table}
 
 Table~\ref{table:detection} provides detection results of two benchmark suites, Phoenix and PARSEC
 The first column lists those programs with false sharing problems.  The second column shows precisely where the problem is. Because all discovered false sharing occurs inside heap objects, we show callsite source code information here.  The third column, ``New'', marks whether this false sharing was newly discovered by \Predator{}.  A checkmark in the following two columns indicates whether the false sharing was identified without

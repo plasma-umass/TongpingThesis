@@ -1,11 +1,11 @@
 \label{sec:scalability}
 
-\begin{figure*}
+\begin{figure}
 {\centering
-\includegraphics[width=5in]{dthreads/figure/scalability-figure}
+\includegraphics[width=6in]{dthreads/figure/scalability-figure}
 \caption{Speedup of eight cores versus two cores (higher is better).  When possible to control with command line options, the number of threads was matched to the number of cores enabled.\label{fig:scalability}}
 }
-\end{figure*}
+\end{figure}
 
 To measure the scalability cost of running \dthreads{}, we ran two benchmark suite (excluding \texttt{canneal}) on the same machine with eight cores and again with two cores enabled.  Whenever possible without source code modifications, the number of threads was matched to the number of CPUs enabled.  We have found that \dthreads{} scales at least as well as \pthreads{} for 9 of 13 benchmarks, and scales as well or better than CoreDet for all but one benchmark where \dthreads{} outperforms CoreDet by 2x.  Detailed results of this experiment are presented in Figure~\ref{fig:scalability} and discussed below.
 

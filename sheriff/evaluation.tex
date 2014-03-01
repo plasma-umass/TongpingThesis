@@ -25,6 +25,7 @@ PTU has false alarms/positives.  It does not track those pattern of accesses, wh
 
 \begin{table}
 \centering
+\resizebox{\columnwidth}{!}{
 \begin{tabular}{l|l|l|l}
 \hline
 {\bf \small Microbenchmark} & {\bf \small Perf Sensitive } & {\bf \small \sheriffdetect{} } & {\bf \small PTU } \\
@@ -38,6 +39,7 @@ PTU has false alarms/positives.  It does not track those pattern of accesses, wh
 \small \textbf{Heap Reuse(no sharing)} & NO & & \xmark{}\\
 \hline
 \end{tabular}
+}
 \caption{False sharing detection results using PTU and \sheriffdetect{}. \sheriffdetect{} correctly reports only actual false sharing instances, with a performance impact;
 \cmark{} indicates a correct report and \xmark{} indicates a false alarm. 
 \label{table:microbenchmarks}}
@@ -237,6 +239,7 @@ sampling interval. The reason is that \texttt{canneal} dirties a large number of
 
 \begin{table*}[!t]
 \centering
+\resizebox{\columnwidth}{!}{
 \begin{tabular}{l|rr|rr|rr}
 \hline
 {\bf \small Benchmark} & \multicolumn{2}{c|} {\bf \small 2ms} & \multicolumn{2}{c|} {\bf \small 10ms}& \multicolumn{2}{c} {\bf \small 50ms}\\
@@ -252,6 +255,7 @@ sampling interval. The reason is that \texttt{canneal} dirties a large number of
 \small \texttt{word\_count} & 4 & 9849 & 4 & 2699 & 3 & 622 \\
 \hline
 \end{tabular}
+}
 \caption{
 \sheriffdetect{} precision with different sampling rates, including the number of falsely-shared objects and interleaved writes. We omit those benchmarks with no observed cases of false sharing.
 \label{table:samplingquality}}
