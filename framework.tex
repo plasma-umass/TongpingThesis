@@ -98,6 +98,6 @@ Although protection faults are expensive,
 these costs are amortized over the entire transaction because each page only incurs at most one page fault per transaction.
  
 \emph{Transaction End:}
-At the end of each transaction, at thread exits and before synchronization points, \sheriff{} commits local changes of a thread to the shared mapping to achieve the shared memory semantics. \sheriff{} commits only the differences between those ''twin'' pages and their ``working'' pages.
+At the end of each transaction, at thread exits and before synchronization points, \sheriff{} commits local changes of a thread to the shared mapping to achieve the shared memory semantics. \sheriff{} commits only the differences between those ``twin'' pages and their ``working'' pages.
 
 After those local changes are committed, \sheriff{} reclaims memory holding ``twin'' pages and ``working'' pages. \sheriff{} issues the \texttt{madvise} call, with the \texttt{MADV\_DONTNEED} flag, to discard those ``working'' pages. 
