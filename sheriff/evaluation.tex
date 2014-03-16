@@ -1,6 +1,6 @@
 \label{sec:evaluation}
 
-We perform all of our evaluations on a quiescent 8-core system (dual processor with 4 cores), with 8GB of RAM. Each processor is a 4-core 64-bit Intel Xeon, running at 2.33 Ghz with a 4MB L2 cache. For compatibility reasons, we compiled all applications to a 32-bit target using the GCC compiler. All performance data is the average of ten runs, excluding the maximum and minimum values.
+We perform all of our evaluations on a quiescent 8-core system (dual processor with 4 cores), with 8GB of RAM. Each processor is a 4-core 64-bit Intel Xeon, running at 2.33 Ghz with a 4MB L2 cache. For compatibility reasons, we compile all applications to a 32-bit target using the GCC compiler. All performance data is the average of ten runs, excluding the maximum and minimum values.
 
 The evaluation answers the following questions:
 
@@ -8,7 +8,7 @@ The evaluation answers the following questions:
 \item How effective is \sheriffdetect{} at finding false sharing and guiding programmers to their resolution? (Section~\ref{sec:effecteval})
 \item What is \sheriffdetect{}'s performance overhead? (Section~\ref{sec:results-runtime-overhead})
 \item How sensitive is \sheriffdetect{} to different sampling rate? (Section~\ref{sec:results-sampling-overhead}) 
-\item How effective does \sheriffprotect{} mitigate false sharing? (Section~\ref{})
+\item How effective does \sheriffprotect{} mitigate false sharing? (Section~\ref{sec:protectperformance})
 \end{itemize}
 
 \subsection{\sheriffdetect{} Effectiveness}
@@ -20,7 +20,7 @@ This section evaluates whether \sheriffdetect{} can be used to find false sharin
 We developed a range of microbenchmarks that exemplify different situations related to false sharing. We evaluate these benchmarks on both \SheriffDetect{} and Intel's Performance Tuning Utility(PTU v3.2), the previous state-of-the-art work of false sharing detection. 
 
 Detection results are shown in Table~\ref{table:microbenchmarks}. \sheriffdetect{} only reports those false sharing instances that can possibly affect the performance, while correctly ignores those cases without performance impact.
-PTU has false alarms/positives.  It does not track those pattern of accesses, which reports false positives for those non-interleaved accesses. Also, PTU does not track memory deallocations, thus it can not filter out those pseudo false sharing caused by memory reuse. \sheriffdetect{} avoids all of these problems and reports false sharing problems correctly. 
+PTU has false alarms/positives.  It does not track access patterns, which reports false positives for those non-interleaved accesses. Also, PTU does not track memory deallocations, thus it can not filter out those pseudo false sharing caused by memory reuse. \sheriffdetect{} avoids all of these problems and reports false sharing problems correctly. 
 
 
 \begin{table}
@@ -40,12 +40,12 @@ PTU has false alarms/positives.  It does not track those pattern of accesses, wh
 \hline
 \end{tabular}
 }
-\caption{False sharing detection results using PTU and \sheriffdetect{}. \sheriffdetect{} correctly reports only actual false sharing instances, with a performance impact;
+\caption{False sharing detection results using PTU and \sheriffdetect{}. \sheriffdetect{} correctly reports only actual false sharing instances that have performance impact;
 \cmark{} indicates a correct report and \xmark{} indicates a false alarm. 
 \label{table:microbenchmarks}}
 \end{table}
 
-We further evaluate \SheriffDetect{} and PTU on two widely-used benchmarks suites, Phoenix~\cite{phoenix-hpca} and PARSEC~\cite{parsec}. We use the simlarge inputs for all applications of PARSEC. For Phoenix, we chose available parameters that allow the programs to run as long as possible. As of this writing, we were unable to successfully compile \texttt{raytrace} and \texttt{vips}, and \sheriff{} is
+We further evaluate \SheriffDetect{} and PTU on two widely-used benchmark suites, Phoenix~\cite{phoenix-hpca} and PARSEC~\cite{parsec}. We use the simlarge inputs for all applications of PARSEC. For Phoenix, we chose available parameters that allow the programs to run as long as possible. As of this writing, we were unable to successfully compile \texttt{raytrace} and \texttt{vips}, and \sheriff{} is
 currently unable to run \texttt{x264}, \texttt{bodytrack},
 and \texttt{facesim}. \texttt{Freqmine} currently can not support \pthreads{}. Thus, those benchmarks are excluded here. 
  
@@ -76,11 +76,11 @@ and \texttt{facesim}. \texttt{Freqmine} currently can not support \pthreads{}. T
 \end{table}
 
 
-The overall results are shown in Table~\ref{table:fsdetection}. PTU reports that 2647 cache lines may exist false sharing problems, given that they can report false positives. \sheriffdetect{} reveals that seven out of sixteen evaluated benchmarks have some false sharing issues. Totally, only 14 objects are reported, but only 4 of them shows a big number of cache invalidations. 
+The overall results are shown in Table~\ref{table:fsdetection}. PTU reports that 2647 cache lines may exist false sharing problems, given that they can report false positives. \sheriffdetect{} reveals that seven out of sixteen evaluated benchmarks have false sharing problems. Totally, only 14 objects are reported, but only 4 of them shows a big number of cache invalidations, thus needs to be fixed. 
 
-Several reasons contributes to this big difference. First, PTU reports cache lines information about false sharing objects, while \SheriffDetect{} only reports objects. Second, PTU reports multiple times if a heap object, with the same allocation site, is allocated multiple times, while \SheriffDetect{} only reports once. Third, PTU may report false positives since it do not track interleaved accesses and overrate the problems caused by heap reuses. 
+Several reasons contributes to the number difference between these two approaches. First, PTU reports cache lines involving in false sharing, while \SheriffDetect{} only reports objects. If an object has a size larger than the size of cache line, PTU can report multiple times, one on each cache line. Second, PTU reports multiple times if a heap object, with the same allocation site, is allocated multiple times, while \SheriffDetect{} only reports once. Third, PTU may report false positives since it do not track interleaved accesses and overrate the problems caused by heap reuses. 
 
-We manually fix these four false sharing problems based on reports of \SheriffDetect{}, and showed the performance gains after fixes in Table~\ref{table:perfafterfix}. To explain why performance improvement are different, we also examine the maximum possible updates occurred on these false sharing objects, thus brining performance improvement after fixes. For example, \texttt{linear\_regression} has the largest updates, thus causing serious performance problem because of false sharing. 
+We manually fix these four false sharing problems based on reports of \SheriffDetect{}, and show the performance gains after fixes in Table~\ref{table:perfafterfix}. To explain why performance improvement are different, we also examine the maximum possible updates that can occur on a false sharing object, although the actual number of interleaved accesses depends on scheduling. For example, \texttt{linear\_regression} has the largest updates, thus causing the most serious performance problem. 
 
 \begin{table}
 \centering
@@ -100,7 +100,7 @@ We manually fix these four false sharing problems based on reports of \SheriffDe
 \end{table}
 
 
-In \texttt{reverse\_index} and \texttt{word\_count}, multiple threads repeatedly modify the same heap object. The pseudo code for these two benchmarks are listed in Figure~\ref{fig:reverseindex}. We may use thread-local copy to avoid the false sharing problem here; each thread can modify a temporary variable first and then modify the global \texttt{use\_len} in the end of thread.
+In \texttt{reverse\_index} and \texttt{word\_count}, multiple threads repeatedly modify the same heap object. The pseudo code for these two benchmarks are listed in Figure~\ref{fig:reverseindex}. For these two benchmarks, we can use thread-local variables to avoid performance problems: each thread can operate on a temporary variable first, and then modify the global \texttt{use\_len} at the end of the thread.
 
 \begin{figure}[!t]
 \begin{lstlisting}[style=tt]
@@ -112,13 +112,13 @@ void insert_sorted(int curr_thread) {
    ......	
 }
 \end{lstlisting}
-\caption{A fragment of source code from \texttt{reverse\_index}. False sharing arises when adjacent threads 
-modify the \texttt{use\_len} array. 
+\caption{A fragment of source code from \texttt{reverse\_index}. False sharing arises when different threads 
+modify different words in the same \texttt{use\_len} array. 
 \label{fig:reverseindex}}
 \end{figure}
 
 \texttt{Linear\_regression}'s false sharing problem is a little different (see Figure~\ref{fig:linear_regression}). 
-Two different threads write to the same cache line when the structure \texttt{lreg\_args} is not aligned with corresponding cache lines. This problem can be avoided easily by padding the structure \texttt{lreg\_args}.
+Two different threads write to the same cache line when the structure \texttt{lreg\_args} is not aligned with corresponding cache lines. This problem can be avoided easily by padding the structure \texttt{lreg\_args}, thus preventing different threads concurrently accessing the same cache line. 
 
 \begin{figure}[!t]
 \begin{lstlisting}[style=tt]
@@ -144,7 +144,7 @@ Unfortunately, the size of \texttt{struct lreg\_args} is not cache line aligned 
 \label{fig:linear_regression}}
 \end{figure}
 
-The false sharing problem detected in \texttt{streamcluster} (one of the PARSEC benchmarks) is similar to the false sharing problem in \texttt{linear\_regression}; two different threads are writing on the same cache line.  In fact, the author tried to avoid the false sharing problems and make every stride a multiple times of cache line size. But the default cache line size is 32 bytes, which is different from the actual physical cache line size that we are used in evaluation (64 bytes).  By simply setting the \texttt{CACHE\_LINE} macro to 64 bytes, it is possible to avoid this false sharing problem completely.
+The false sharing problem detected in \texttt{streamcluster} (one of the PARSEC benchmarks) is similar to that in \texttt{linear\_regression}: two different threads are writing to the same cache line. Examination of the source code indicates that the author tried to avoid false sharing by padding, but the amount of padding, 32 bytes, was insufficient to accommodate the actual physical cache line size used in the evaluation (64 bytes). Setting the \texttt{CACHE\_LINE} macro to 64 bytes avoids this false sharing problem.
 
 
 \subsubsection{Ease of locating false sharing problems}
@@ -153,18 +153,18 @@ The false sharing problem detected in \texttt{streamcluster} (one of the PARSEC 
 
 To illustrate how \sheriffdetect{} can precisely locate false sharing problems, we use one benchmark (\texttt{word\_count}, a Phoenix benchmark) as an example. Our experience with diagnosing other false sharing issues is similar.
 
-Here is an example output from \sheriffdetect{} from \texttt{word\_count}.
+Here is an example output from \sheriffdetect{} for \texttt{word\_count}.
 
 \begin{verbatim} 
 1st object, cache interleaving writes 
 13767 times (start at 0xd5c8e140). 
 Object start 0xd5c8e160, length 32. 
 It is a heap object with callsite:
-callsite0:./wordcount_pthreads.c:136
-callsite1:./wordcount_pthreads.c:441
+[0]: ./wordcount_pthreads.c:136
+[1]: ./wordcount_pthreads.c:441
 \end{verbatim}
 
-Line 136 (\texttt{wordcount\_\pthreads{}.c}) contains the following memory allocation call:
+Line 136 (\texttt{wordcount\_\pthreads{}.c}) contains the following memory allocation:
 
 \begin{verbatim}
 use_len=malloc(num_procs*sizeof(int));
@@ -176,9 +176,9 @@ Grepping for \texttt{use\_len}, a global pointer, quickly leads to this line:
 use_len[thread_num]++;
 \end{verbatim}
 
-Now it is clear that different threads are modifying the same object(use\_len). Fixing the problem by using a thread-local data copy is now straightforward~\cite{detect:intel}.
+Now it is clear that different threads are modifying the same object(use\_len). Fixing the problem by using a thread-local data copy is now straightforward.
 
-By contrast, compare PTU's output in Figure~\ref{fig:wordcount}. Finding this problem is far more complicated with PTU, since it only presents functions using each cache line, not to mention the fact that PTU can report huge numbers of false positives.  Another shortcoming of PTU is that ``Collected Data Refs'' number cannot be used as a metric to evaluate the significance of false sharing problems. For this example, PTU only reports 12 references (versus 13767 cache invalidations for \sheriffdetect{}).
+By contrast, we can compare PTU's output that shown in Figure~\ref{fig:wordcount}. Finding this problem is far more complicated with PTU. PTU only presents functions using each cache line, not to mention the fact that PTU can report huge numbers of false positives.  Another shortcoming of PTU is that ``Collected Data Refs'' number cannot be used as a metric to evaluate the significance of false sharing problems. For this example, PTU only reports 12 references, while \sheriffdetect{} observes 13767 cache invalidations.
 
 \begin{figure*}[!t]
 \centering
@@ -199,18 +199,18 @@ By contrast, compare PTU's output in Figure~\ref{fig:wordcount}. Finding this pr
 
 \SheriffDetect{}'s  runtime overhead (comparing to \pthreads{}) on two multithreaded benchmarks suites, Phoenix and PARSEC is shown in Figure~\ref{fig:overhead}.  \SheriffDetect{} only introduces 20\% performance on average, with the exception of three outliers. For other benchmarks, \SheriffDetect{}’s overhead is generally acceptable and far lower than most previous tools.
 
-\texttt{linear\_regression} exhibits almost
-a $10\times$ speedup against the one using \pthreads{} library even with the added overhead of sampling and 
-other mechanisms of \sheriffdetect{}.  There is a
-serious false sharing problem inside (see
-Table~\ref{table:perfafterfix}) which both \sheriffdetect{} and \sheriffprotect{} eliminate automatically. 
 
-There are two benchmarks on which \sheriffdetect{} do not perform well. One is \texttt{canneal}, the performance overhead of \sheriffdetect{} on this benchmark is about $7\times$ slower than that using \pthreads{} library. Another one is \texttt{fluidanimate}, the performance overhead is about $14\times$ slower than that using \pthreads{}.
+There are two benchmarks on which \sheriffdetect{} do not perform well. \texttt{canneal} runs about $7\times$ slower than that with \pthreads{}.  \texttt{fluidanimate}'s  performance overhead is about $11\times$ slower than that using \pthreads{}.
 
-According to our analysis, the number of transactions and dirty pages are two main causes of the performance overhead. Usually more transaction number can cause more dirty pages.   
+The first reason for these overheads is that both benchmarkstrigger a high number of dirtied pages (3.4 million and2.15 million, respectively). For each dirty page, \sheriffdetect{} applies page protection twice, create a ``copy-on-write'' page and a ``twin'' page, checks false sharing problems at every sampling interval, and commits those local changes to the shared mapping. Thus, given large amount of dirty pages, copying overhead alone is very expensive and can dominate most of overhead. For example, \texttt{Canneal} invokes around 3.4 million dirty pages, thus leading to substantial overhead. 
 
-For a dirty page in every transaction, \sheriffdetect{} handles a page fault, creates two additional pages -- a ``working page'' and a ``twin'' page, checks false sharing problems at every sampling interval, and commits those local changes to the shared mapping. Thus, given large amount of dirty pages, copying overhead alone is very expensive and can dominate most of overhead. For example, \texttt{Canneal} invokes around 2.2 million dirty pages, thus leading to substantial overhead. \texttt{fluidanimate} has a large number of lock calls. Since \SheriffDetect{} replaces lock calls with their interprocess variants and triggers a transaction end and begin for each, thus, \texttt{fluidanimate} runs much slower on the \SheriffDetect{} than on the \pthreads{} library.
+\texttt{fluidanimate} also runs slowly with \SheriffDetect{}because of an unusually high number of transactions (16.7million). Since \SheriffDetect{} replaces lock calls with their interprocess variants and triggers a transaction end and begin for each lock calls, thus, adding overhead if there are shared pages.
  
+ 
+While these outliers force \SheriffDetect{} to runslowly, \SheriffDetect{}’s overhead is generally acceptableand far lower than most previous tools.
+\texttt{linear\_regression} is an outlier in the opposite direction: with \SheriffDetect{}, it runs $8\times$ faster than with \pthreads{}, even with the added overhead of protection, memory commits, sampling and 
+other mechanisms.  There is a serious false sharing problem inside (see Table~\ref{table:perfafterfix},) which both \sheriffdetect{} and \sheriffprotect{} eliminate automatically. Other cases where \sheriffdetect{}outperforms \pthreads{} are also due to false sharing elimination;\SheriffProtect{} further reduces overhead for theseand other applications, as the next section describes.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 %%%% Some data to list the effectiveness of this tool.
 %%%%%% How many caches are carried for each test case. 
@@ -268,7 +268,7 @@ While changing the sampling rate affects the number of falsely-shared objects de
 
 
 \subsection{\SheriffProtect{} Performance Overhead}
-\label{sec:results-runtime-overhead}
+\label{sec:protectperformance}
 
 \begin{figure*}[!t]
 \centering

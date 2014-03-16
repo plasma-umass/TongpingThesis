@@ -31,7 +31,9 @@ will resume once all threads have finished their critical sections.  This makes 
 This section analyzes some key limitations of \dthreads{} that restrict its ability to run certain programs, limit the extent of determinism it can guarantee, or potentially affect performance.
 
 \textbf{Unsupported programs: }
-\dthreads{} supports programs thatuse the pthreads library, but does not support programs thatbypass it by rolling their own ad hoc synchronization operations, such as those that use atomic operations. However, the upcoming C++0X standard includes a library interface for atomic operations~\cite[pp. 1107--1128]{c++0xstandarddraft}, and a future version of \dthreads{} could correctly implement these by intercepting these library calls and treating them as synchronization points. While ad hoc synchronization is a common practice, it is also a notorious source of bugs; Xiong et al.\ show that 22--67\% of the uses of ad hoc
+\dthreads{} supports programs that
+use the pthreads library, but does not support programs that
+bypass it by rolling their own ad hoc synchronization operations, such as those that use atomic operations. However, the upcoming C++0X standard includes a library interface for atomic operations~\cite[pp. 1107--1128]{c++0xstandarddraft}, and a future version of \dthreads{} could correctly implement these by intercepting these library calls and treating them as synchronization points. While ad hoc synchronization is a common practice, it is also a notorious source of bugs; Xiong et al.\ show that 22--67\% of the uses of ad hoc
 synchronization lead to bugs or severe performance issues~\cite{ad-hoc-considered-harmful}.
 
 \dthreads{} also currently does not share the stack
