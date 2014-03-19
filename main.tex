@@ -5,7 +5,7 @@
 %% handling of titles of one/many appendices.  It will automatically
 %% handle the linespacing changes.  The body default is double-spaced
 %% (except when you use the singlespace or condensed options).  The
-%% default for quotations is single-space, and the default for tabular
+%% default for quotations is single-space, and the default for tabularmultithreaded programs
 %% environments is also single-space.  
 %%
 %% This class adds the following commands and environments to the
@@ -160,7 +160,7 @@
 \author{Tongping Liu}
 \date{May 2014} % The date you'll actually graduate -- must be
                      % February, May, or September
-\copyrightyear{2013}
+\copyrightyear{2014}
 \bachelors{B.S.}{Harbin Institute of Technology}
 \masters{M.E.}{Huazhong University of Science and Technology}
 \secondmasters{M.S.}{UNIVERSITY OF MASSACHUSETTS AMHERST}
@@ -171,7 +171,7 @@
 %\fifthreader{}            % Optional
 %\sixthreader{}            % Optional
 \departmentchair{Lori A. Clarke}
-\departmentname{Department of Computer Science}
+\departmentname{School of Computer Science}
 
 %% If your degree is something other than a Ph.D. (for a dissertation), or
 %% an M.S. (for a thesis), you will need to uncomment the appropriate
@@ -236,15 +236,15 @@
 \input{acknowledgements}
 
 \begin{abstract}                % Abstract
-The advent of multicore architecture has increased the demand for multithreaded programs. It is notoriously far more challenging to write concurrent programs correctly and efficiently than sequential ones, because of the wide range of concurrency errors and performance problems. 
+The advent of multicore architecture has increased the demand for multithreaded programs. It is notoriously far more challenging to write parallel programs correctly and efficiently than sequential ones, because of the wide range of concurrency errors and performance problems. 
 
 In this thesis, I developed a series of runtime systems and tools to combat concurrency errors and performance problems of multithreaded programs.
 
-The first system, \dthreads{}, automatically ensures determinism for unmodified C/C++ applications using the \pthreads{} library, without requiring programmer intervention. Because of determinism, it greatly simplifies the understanding and debugging of multithreading programs. \dthreads{} outperforms the previous state-of-the-art (CoreDet) more than $3\times$, thus greatly propelling the progress of this field. \dthreads{} leverages the isolated executions, combined with a deterministic commit protocol and a deterministic memory allocator, to ensure robust deterministic execution with very low runtime overhead.
+The first system, \dthreads{}, automatically ensures determinism for unmodified C/C++ applications using the \pthreads{} library, without requiring programmer intervention and hardware support. Because of determinism, it greatly simplifies the understanding and debugging of multithreaded programs. \dthreads{} outperforms the previous state-of-the-art (CoreDet) more than $3\times$, thus greatly propelling the progress of this field. \dthreads{} leverages the isolated executions, combined with a deterministic commit protocol and a deterministic memory allocator, to ensure robust deterministic execution with very low runtime overhead.
 
-The second system attacks one of the notorious performance problems of multithreaded programs, false sharing. We provide the first accurate and precise detection tool, \sheriffdetect{}, which can pinpoint the name of global variables or the line of source code of heap objects when they have false sharing problems inside, without any false positives. We also provide a runtime system, \SheriffProtect{}, to automatically boost performance for those programs with false sharing problems inside, when fixing false sharing problems is unable to improve the performance or is impossible because of lacking source code or time. 
+The second system attacks one of the notorious performance problems of multithreaded programs, false sharing. We provide the first accurate and precise detection tool, \sheriffdetect{}, which can pinpoint the name of global variables or the line of source code of heap objects that have false sharing problems inside, without any false positives. We also provide a runtime system, \SheriffProtect{}, to automatically boost the performance of those programs with false sharing problems inside, when fixing false sharing problems is unable to improve the performance or is impossible because of lacking source code or time. 
 
-The third system, \predator{}, improves the effectiveness of false sharing detection. It can detect one more type of false sharing, read-write false sharing. It is a generalized tool that can work on applications without any limitations. Also, it can even detect false sharing problems without the requirement of occurrences. \Predator{} is also the first tool to precisely detect false sharing problems happenning in those complex real applications. 
+The third system, \predator{}, improves the effectiveness of false sharing detection. It can detect one more type of false sharing, read-write false sharing, and work on applications without any limitations. Also, it can even detect false sharing problems without occurrences, thus overcomes a shortcoming of all existing tools: they can only detect those observed false sharing problems. \Predator{} is also the first tool to precisely detect false sharing problems happening in those complex real applications. 
 
 \end{abstract}
 
@@ -275,7 +275,7 @@ The third system, \predator{}, improves the effectiveness of false sharing detec
 \unnumberedchapter{Introduction}
 \input{intro}
 
-\chapter{Problems of Multithreaded Programs}
+\chapter{Problems of multithreaded programs}
 \input{problems}
 
 

@@ -229,11 +229,14 @@ and other applications, as the next section describes.
 \subsection{\SheriffDetect{} Sampling Rate Sensitivity}
 \label{sec:results-sampling-overhead}
 
-\SheriffDetect{} employs the sampling mechanism to detect false sharing happening in long-running transactions. Sampling is only triggered when the length of a transaction exceeds a pre-defined threshold, usually 10ms. By handling those \texttt{SIGALARM} signals, \SheriffDetect{} tracks memory accesses by by comparing the temporary twin page against itscorresponding working version, and updates status words of specific cache lines. Thus, increased sampling rates may uncover more false sharing problems, but at the cost of increase performance overhead. 
+\SheriffDetect{} employs the sampling mechanism to detect false sharing happening in long-running transactions. Sampling is only triggered when the length of a transaction exceeds a pre-defined threshold, usually 10ms. By handling those \texttt{SIGALARM} signals, \SheriffDetect{} tracks memory accesses by by comparing the temporary twin page against its
+corresponding working version, and updates status words of specific cache lines. Thus, increased sampling rates may uncover more false sharing problems, but at the cost of increase performance overhead. 
 
 To measure \sheriffdetect{}'s sensitivity to the sampling rate, we evaluate on three different sampling rates: 2ms, 10ms (our baseline), and 50ms.
 
-\paragraph{Sampling Overhead:} Figure~\ref{fig:sensitivity} shows the performance overhead under these different sampling rates, normalized to the runtime of using  the default 10ms sample rate. For most of these benchmarks, sampling imposes relatively little overhead because the averagenumber of shared pages is not large or because thetransaction length is often shorter than the sampling interval.
+\paragraph{Sampling Overhead:} Figure~\ref{fig:sensitivity} shows the performance overhead under these different sampling rates, normalized to the runtime of using  the default 10ms sample rate. For most of these benchmarks, sampling imposes relatively little overhead because the average
+number of shared pages is not large or because the
+transaction length is often shorter than the sampling interval.
 
 One outlier is \texttt{canneal}, which is extremely sensitive to the sampling rate.  When the sampling interval is 2ms, \texttt{canneal} runs about $2.3\times$ slower than that with  a 10ms sampling interval; \texttt{canneal} runs 35\% slower with a 50ms sampling interval than 2 10ms
 sampling interval. The reason is that \texttt{canneal} dirties a large number of shared pages. More frequent sampling thus increases the amount of checking overhead.
@@ -320,7 +323,7 @@ Changing the sampling rate can affect the number of falsely-shared objects detec
 
 Here, we examine the effectiveness of eliminating false sharing problems.  Figure~\ref{fig:patrol} presents the performance under \SheriffProtect{} and the standard \pthreads{} library.  For most cases, \SheriffProtect{} either has no effect on performance (when there is no false sharing problem inside) or improves the performance. Table~\ref{table:detailedperf} presents detailed performance results of \SheriffDetect{} and \SheriffProtect{}. 
 
-\SheriffProtect{} improves the performance when an application is detected to have false sharing problems inside.  \texttt{linear\_regression} exhibits almost a $10\times$ speedup against the one using \pthreads{} library, by tolerating a serious false sharing problem inside (see Table~\ref{table:perfafterfix}). \texttt{histogram} runs substantially faster with \SheriffProtect{} (24\%), although we currently are not certain why this is the case. \texttt{string\_match} runs 40\% faster because of false sharing caused by the \pthreads{} heap allocator, which is why \SheriffDetect{} does not find. 
+\SheriffProtect{} improves the performance when an application is detected to have false sharing problems inside.  \texttt{linear\_regression} exhibits almost a $10\times$ speedup against the one using \pthreads{} library, by tolerating a serious false sharing problem inside (see Table~\ref{table:perfafterfix}). \texttt{histogram} runs substantially faster with \SheriffProtect{} (24\%) because a read-write false sharing, see Section~\ref{sec:predatoreffective}. \texttt{string\_match} runs 40\% faster because of false sharing caused by the \pthreads{} heap allocator, which is why \SheriffDetect{} does not find. 
 
 There are three benchmarks which runs up to 47\% slower than using the \pthreads{}. 
 \texttt{kmeans} creates more than 3000 threads in eight seconds. Since the overhead of creating one process is higher than that of creating one thread, this dominates most of overhead. 

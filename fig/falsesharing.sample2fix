@@ -1,9 +1,10 @@
-void * child (void * ptr) {
-  int tid = (int)ptr;
-  int temp = Array[tid]; 
-  for(i = 0; i < 1M; i++)
-    // Array[tid]++; 
-    temp++; 
+void * child (int S) {
+  for(i = S; i< S + W; i++) {
+    int temp = Array[i];
+
+    for(j = 0; j < 1M; j++)
+      temp++;
+  
+    Array[i] = temp;
   }
-  Array[tid] = temp; 
 }

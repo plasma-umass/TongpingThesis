@@ -1,7 +1,8 @@
 int Array[8];
-int main() {
- for(int i = 0; i < 8; i++) {
-  // Create child thread
-  pth_create(child, (void *)i);
- }
+int W = 1;
+
+int main(int THREADS) {
+ W = 8/THREADS;
+ for(i = 0; i< 8; i += W) 
+  spawn(increment,i);
 }

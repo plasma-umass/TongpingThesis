@@ -15,17 +15,17 @@ This section describes \dthreads{}’ key algorithms---isolated execution, deter
 \end{figure}
 
 Figure~\ref{fig:phase} illustrates the execution of programs under \dthreads{}. \dthreads{} divides the execution of each thread into alternating parallel phases and serial phases. 
-Based on the \sheriff{} framework, \dthreads{} isolates memory accesses in parallel phases. These accesses work on private copies of memory; that is, updates are not shared between threads during the parallel phases. When a synchronization point is reached, updates are applied (or made visible) in a deterministic order, as well as synchronizations. 
+Based on the \sheriff{} framework, \dthreads{} isolates memory accesses in parallel phases. These accesses work on private copies of memory; that is, updates are not shared between threads during the parallel phases. When a synchronization point is reached, updates are applied (and made visible) in a deterministic order, as well as synchronizations. 
   
 \subsection{Isolated Execution}
 \label{sec:threadsasprocs}
 
-Relying on the \sheriff{} framework (Section~\ref{sec:sheriffframework}), \dthreads{} turns threads into processes, with separate address spaces but the shared file table (Section~\ref{sec:threadcreat}). Thus, \dthreads{} isolates memory accesses among different threads between synchronization points: different threads can only see their own local changes. Those changes are merged together at synchronization points in order to achieve the shared memory semantics. Those details to achieve this target are discussed in Section~\ref{sec:sharedmemory}.  
+Relying on the \sheriff{} framework, \dthreads{} turns threads into processes, with separate address spaces but the shared file table (Section~\ref{sec:threadcreat}). Thus, \dthreads{} isolates memory accesses among different threads between synchronization points: different threads can only see their own local changes. Those changes are merged together at synchronization points in order to achieve the shared memory semantics. 
 
 \subsection{Deterministic Memory Commit}
 \label{sec:sharedmem}
 
-This section describes the mechanisms used to guarantee deterministic commit order, and the details of commits to the shared memory. These mechanisms are not provided by the \sheriff{} framework.   
+This section describes the mechanisms used to guarantee deterministic commits to the shared memory. These mechanisms are not provided by the \sheriff{} framework.   
 
 \subsubsection{Fence and Token}
 \label{sec:schedule}
@@ -65,7 +65,7 @@ void waitFence(void) {
 \caption{Pseudocode for the internal fence.\label{fig:internalFence}}
 \end{figure}
 
-Figure~\ref{fig:internalFence} shows the pseudocode code for the internal fence. Threads must wait at an internal conditional variable until all threads departed from the last departure phase (lines 4-5). Then those threads are waiting at the fence until all alive threads have arrived at the same fence (lines 8-11). The last thread initiates the departure phase and wakes up all threads on the conditional variable (lines 14-15). As threads leave the fence, they decrement the number of waiting threads.  The last thread to leave sets the fence to the arrival phase and wakes any waiting threads (lines 19-21).
+Figure~\ref{fig:internalFence} shows the pseudocode code for the internal fence. Threads must wait at an internal conditional variable until all threads depart from the last departure phase (lines 4-5). Then those threads are waiting at the fence until all alive threads have arrived at the same fence (lines 8-11). The last thread initiates the departure phase and wakes up all threads on the conditional variable (lines 14-15). As threads leave the fence, they decrement the number of waiting threads.  The last thread to leave sets the fence to the arrival phase and wakes any waiting threads (lines 19-21).
 
 To reduce overhead, whenever the number of running threads is less than or equal to the number of cores, waiting threads use spin locks, instead of expensive cross-process \pthreads{} mutexes. When the number of threads exceeds the number of cores, \dthreads{} falls back to using \pthreads{} mutexes.
 
@@ -85,45 +85,44 @@ void putToken() {
 
 Another key mechanism of \dthreads{} is the global token, which \dthreads{} uses to order memory commits and synchronizations. The token implementation is listed in Figure~\ref{fig:token}. The token is a shared pointer that points to the next runnable thread entry, which guarantees the global order for all operations in serial phases.  
 
-\dthreads{} introduces two subroutines to manage tokens.  The \texttt{waitToken()} function first waits at the internal fence and then waits to acquire the global token in order to enter or leave the serial phases. The \texttt{putToken()} function passes the token to the next waiting thread. 
+\dthreads{} introduces two subroutines to manage tokens.  The \texttt{waitToken()} function first waits at the internal fence and then waits to acquire the global token in order to enter or leave the serial phases. The \texttt{putToken()} function passes the token to the next thread in the token-passing queue. 
 
-As shown in Figure~\ref{fig:phase}, it is very important for a thread to wait at the internal fence before a thread enters  or leaves serial phases, even for a thread that is guaranteed to have the token next. Otherwise, memory commits of a thread can affect other threads' behavior, bringing non-determnism. 
+As shown in Figure~\ref{fig:phase}, it is very important for a thread to wait at the internal fence before a thread enters or leaves serial phases, even for a thread that is guaranteed to have the token next. Otherwise, memory commits of a thread can affect other threads' behavior, bringing non-deterministic behavior for programs. 
 
 \subsubsection{Commit Protocol}
 
-Figure~\ref{fig:architecture} shows the steps to track modifications to the shared state and expose them in a deterministic order.  
+Figure~\ref{fig:architecture} shows the steps to track modifications of every thread and expose them in a deterministic order.  
 
-At the beginning of parallel phases, different threads have a read-only mapping for all shared pages. If a thread writes to a shared page during a parallel phase, this write is trapped in order to create a private copy and a twin page for this shared page. After that, reads and writes on this page happen on the private copy only. For those non-trapped pages, reads go directly to the shared state.  
+At the beginning of parallel phases, different threads have a read-only mapping for all shared pages. In parallel phases, if a thread writes to a page, this write is trapped in order to create a private copy and a identical twin page for this page. After that, reads and writes on this page happen on the private copy only. For those non-trapped pages, reads still go directly to the shared state.  
 
-In serial phases, threads first commit their local changes that happen in last parallel phase, guided by the global token.  The first thread to commit to a page can directly copy its private working copy to the shared state (page-based commits), but subsequent commits can only commit the modified bytes (byte-based commits) using the diffing mechanism discussed in Section~\ref{sec:twinning-and-diffing}. The byte-based commits are much slower than the page-based commits, but  they won't overwritten changes committed by previous threads.  After a thread commits its local changes, it issues synchronizations before it passes the token to its next thread. 
+In serial phases, threads first commit their local changes that made in last parallel phase, guided by the global token.  The first thread  committing to a page can directly copy its private working copy to the shared state (page-based commits), but subsequent commits can only commit the modified bytes (byte-based commits), using the diffing and twinning mechanism discussed in Section~\ref{sec:twinning-and-diffing}. The byte-based commits are much slower than the page-based commits, but  they won't overwritten changes committed by those predecessors.  After a thread commits its local changes, it issues synchronizations before it passes the token to its next thread in the token-passing queue. 
 
-In the end of serial phases, every thread has to recover the read-only mapping and wait at the internal fence before enterring into the next parallel phase. 
+In the end of serial phases, every thread has to release those private pages and twin pages, recover the read-only mapping, wait at the internal fence before entering into the next parallel phase. By removing those private pages and recovering those mappings, a thread is able to observe changes made by other threads, achieving the shared memory semantics. 
 
 \subsection{Deterministic Synchronization}
 \label{sec:synchronization}
 
-\dthreads{} supports the full range of synchronizations of \pthreads{} APIs, including locks, conditional variables, barriers and different types of thread exits. Since the \sheriff{} framework can not provide any deterministic guarantee, \dthreads{} implements different types of synchronizations in a deterministic way, discussed in the following sections. 
+\dthreads{} supports the full range of synchronizations of \pthreads{} library, including locks, conditional variables, barriers and different types of thread exits. Since the \sheriff{} framework can not provide any deterministic guarantee, \dthreads{} implements different types of synchronizations in a deterministic way as follows. 
 
 \subsubsection{Locks}
 Before a thread acquires a lock, it has to wait for the global token, by calling \texttt{waitToken}. 
 
-\dthreads{} treats multiple locks as the same one. It only ends the current serial phase for a thread when all locks held by this thread are unlocked. Thus, it is possible for a program with deadlock problems that those deadlocks do not occur to \dthreads{} at all. 
+\dthreads{} treats multiple locks as the same one. It only ends the current serial phase for a thread when all locks held by this thread are released. Because of that, it is possible for a program to avoid deadlock problems. 
 
-At acquisitions of locks, \dthreads{} checks at first whether the current thread is already holding any locks. If not, the thread first waits for the token, commits those changes happened in the last parallel phase to the shared state, and begins a new atomic section. Finally, the thread increments the number of locks that it is currently holding. The lock count ensures that a thread does not pass the token to the next one until it has released all of the locks.
+At acquisitions of locks, \dthreads{} checks at first whether the current thread is already holding any locks. If not, the thread first waits for the token, commits those changes happened in the last parallel phase to the shared state, and begins a new atomic section. Then it increments the number of locks that it is currently holding before entering into critical sections. 
 
-During releases of locks, \dthreads{} decrements the lock count at first. A thread does nothing if there are still some locks holding by the current thread, with the lock count not equal to 0. If all locks have been released, \dthreads{} commits the memory changes happened in this serial phase to the shared state. Then it passes the global token to the next thread of the token queue and waits on the internal fence before entering into the next round's parallel phase.
+At deacquisitions of locks, \dthreads{} decrements the number of locks that the current thread holds first. A thread does nothing if it still holds some locks, with the number of locks not equal to 0. If all locks are released, \dthreads{} commits the memory changes made in this serial phase to the shared state. Then it passes the global token to the next thread in the token-passing queue, and waits on the internal fence before entering into the next round's parallel phase.
 
 \subsubsection{Condition Variables}
 \label{sec:condwait}
 
 Guaranteeing determinism for condition variables is much more complex than for other synchronization primitives. The underlying operating system can not guarantee that threads are going to be waken-up in the same order as their waits. Thus, a naive implementation easily leads to a no-progress problem if the first waken-up thread can not get the global token to proceed first.
 
-When a thread calls \texttt{pthread\_cond\_wait}, it first acquires the global token and commits local modifications that happen during this serial phase since \texttt{pthread\_cond\_wait} is generally issued inside a critical section. It then removes itself from the token queue since threads waiting on condition variables do not participate in the token pass until they are awakened. Then, \dthreads{} adds itself to the conditional variable's waiting queue, decreases the number of alive threads (used in the internal fence mechanism), and passes the token to the next thread on the token queue before actually waiting on a process-shared conditional variable. 
+When a thread calls \texttt{pthread\_cond\_wait}, it first acquires the global token and commits local modifications made in the current serial phase since \texttt{pthread\_cond\_wait} is generally issued inside a critical section. It then removes itself from the token-passing queue, so that those threads waiting on condition variables do not participate in the token pass. Then, it adds itself to the conditional variable's waiting queue, decreases the number of alive threads (used in the internal fence mechanism), and passes the token to the next thread in the token-passing queue before actually waiting on a process-shared conditional variable. 
 
-When a thread is awaken, it should check at first whether the current thread is ready to run or not. For the deterministic reason, \texttt{pthread\_cond\_signal} should only wake up the first thread waiting on a conditional variable but the operating system, like Linux, can not guarantee this. Thus, we specifically wake up all threads, but only the first thread is given the permission to run. If a thread is not able to run, it waits on this conditional variable again; if a thread is the candidate thread to be waken up, it waits for the global token to enter into the next serial phase, which this thread should get immediately in order to avoid a no-progress problem. 
+When a thread is awaken, it should check at first whether the current thread is ready to run or not. For a deterministic reason, \texttt{pthread\_cond\_signal} should only wake up the first thread waiting on a conditional variable and \texttt{pthread\_cond_broadcast} wakes up all waiting threads. However, the underlying operating system, like Linux, can not guarantee this. To resolve this problem, in \texttt{pthread\_cond\_signal}, we specifically wake up all threads, but only the first thread is given the permission to run: If a thread is not able to run, it waits on this conditional variable again; If a thread is the candidate thread to be waken up, it waits for the global token to enter into the next serial phase; The candidate thread should get the token immediately in order to avoid a no-progress problem. 
 
-For \texttt{pthread\_cond\_signal} and \texttt{pthread\_cond\_broadcast}, the calling thread first waits for the global token, and then commits any local modifications before issuing an actual wake-up signal. If no threads are waiting on a condition variable, \dthreads{} passes the token to the next thread immediately. Otherwise, \dthreads{} migrates corresponding threads, one for \texttt{pthread\_cond\_signal} and all for \texttt{pthread\_cond\_broadcast}, in the condition variable queue to the head of the token queue, marks them as ready, and increments the number of alive threads correspondingly. 
-
+For both \texttt{pthread\_cond\_signal} and \texttt{pthread\_cond\_broadcast}, the calling thread first waits for the global token, and then commits any local modifications before issuing an actual wake-up signal. When no threads are waiting on a condition variable, it passes the token to the next thread immediately, treating those calls as no-ops basically. Otherwise, it migrates corresponding threads, one for \texttt{pthread\_cond\_signal} and all for \texttt{pthread\_cond\_broadcast}, from the queue of this condition variable to the head of the token-passing queue, marks them as ready, increments the number of alive threads, and passes the token to the first thread in the token queue. 
 
 \subsubsection{Barriers}
 

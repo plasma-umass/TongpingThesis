@@ -1,19 +1,17 @@
 \label{chapter:problems}
 
-Writing Multithreaded programs can encounter concurrency errors and performance anomalies. This thesis discusses in detail two different categories of problems, including non-deterministic executions and false sharing.  We discuss the definitions, causes of these problems and their possible consequence as follows.
-
+Writing Multithreaded programs can encounter concurrency errors and performance anomalies. This thesis discusses in detail two different types of problems, non-determinism and false sharing.  We discuss the definitions, causes of these problems and their possible consequence as follows.
 
 \section{Non-determinism}
 \label{sec:nondeterminism}
 
 \subsection{Background}
 Deterministic behavior of programs is the most desirable behavior: given the same input, a program
-produces the same output and generates the same execution. Relying on this behavior, programers
-are able to figure out potential problems latent in programs. 
+produces the same output and generates the same execution. Relying on this behavior, it is able to figure out problems of programs. 
 
 In reality, it is relatively easy for sequential programs to achieve this target if a program do not explicitly rely on a randomized mechanism. 
 However, it is hard to do this for parallel programs. In shared memory multithreaded programs, an application can only experience one of many possible 
-schedules at a time. Thread scheduling, the order of memory accesses on the shared data, operations depending on timing and non-deterministic synchronizations, can easily cause different behavior of the same program.
+schedules at a time. Thread scheduling, the order of memory accesses on the shared data, operations depending on timing and non-deterministic synchronizations, can easily lead to different executions of the same program.
 
 
 \begin{figure*}[!ht]
@@ -30,45 +28,46 @@ schedules at a time. Thread scheduling, the order of memory accesses on the shar
 }
 \end{figure*}
 
-A simple example of non-deterministic execution can be seen in Figure~\ref{fig:nondeterminism}. This program with \pthreads{} can print ``1,0'', ``0,1'' or ``1,1'' in the end, depending on the order of memory accesses from different threads. We actually evaluate this simple program one million times. About 99.43\% of time, it will print ``1,0'', while 0.56\% it will print ``0,1'' and 0.01\% it will print ``1,1''. For this program, ``1,0'' and ``1,0'' are correct results according to the semantics. So the unexpected result (``1,1'') caused by race conditions is very rare, only about 0.01\%.  
-It is very difficult to observe/reproduce these rare cases, caused by race conditions.
+A simple example of non-deterministic execution can be seen in Figure~\ref{fig:nondeterminism}. When using the standard \pthreads{} library, this program can print ``1,0'', ``0,1'' or ``1,1'' in the end, depending on the order of memory accesses from different threads. We actually run this simple program for one million times. About 99.43\% of time, it will print ``1,0'', while 0.56\% it will print ``0,1'' and 0.01\% it will print ``1,1''. According to the semantics of this program, both ``1,0'' and ``1,0'' are correct results. Thus, the unexpected result (``1,1'') caused by race conditions happens very rarely, only about 0.01\%.  
+It is very difficult to observe/reproduce these rare cases that caused by race conditions.
 
 \subsection{Source of Non-determinism}
-A lot of sources may cause non-deterministic executions. 
-For example, the timing of external inputs is one of the sources that can lead to non-determinism. This section only lists some internal sources in the following~\cite{costofdeterminism}. 
+Non-determinism can be caused by a lot of sources, both external sources and internal sources. For example, the timing of external inputs is one of the sources that can lead to non-determinism. This section only lists internal sources of non-determnism~\cite{costofdeterminism}. 
  
 \emph{Thread Communication}: 
-Thread communication is the most important source of non-determinism for parallel programs. 
-First, the order of accesses on shared variables may change from one execution to the other. Second, the orders on shared resources, such as memory allocation, synchronization, and library/system calls, vary among different executions. 
-Third, the interaction between compiler and run-time can be changed. For example, lazy binding may cause the thread, to perform address resolution, to execute much more instructions than others. 
+Thread communication is the most important source of non-determinism for mulithreaded programs. 
+First, the order of accesses on shared variables may change from one execution to the other. Second, the orders on shared resources, such as memory allocation, synchronization, and library/system calls, vary across different executions. 
+Third, the interaction between compiler and run-time can be changed. For example, lazy binding may cause the thread that  performs address resolution to execute much more instructions than others. 
 
 \emph{Memory Layout}: 
-Address space layout randomization (ASLR) in Linux environment brings non-deterministic memory addresses of instructions and data across different executions. 
+Address space layout randomization (ASLR) in Linux environment brings non-deterministic memory addresses of instructions and data across different executions. Thus, a program relying on memory addresses lead to non-deterministic execution of a program. 
 
 \emph{System or Library Dependence}:
-Some library calls can not give deterministic results, such as the \texttt{gettimeofday()} library call. Also, \texttt{read} system calls may return different number of bytes, depending on the timing of issuing \texttt{read} calls. 
+Some library or system calls cannot return deterministic results. For example, the \texttt{gettimeofday()} library call returns different time values at different time, and \texttt{read} system calls may return different number of bytes, depending on the timing of issuing \texttt{read} calls.  An application relying on them can execute non-deterministically too. 
 
 
 \subsection{Effect of Non-determinism}
-Because of different sources of non-determinism, listed in the above section, existing parallel applications can not run deterministically: given the same input, a program can have different executions that may or may not lead to different outputs. 
+Because of different sources of non-determinism, listed in the above section, existing multithreaded applications can not run deterministically: given the same input, a program can have different executions that may or may not lead to different outputs. 
 
-Non-determinism can greatly complicate the reasoning and debugging in development phases, which makes it hard for programmers to reproduce errors. 
-Even worse, since executions of the development phase can be varied from executions of deployment phase, some errors can be easily leaked to customers.
+Non-determinism can greatly complicate the reasoning and debugging in development phases, which makes it hard for programmers to reproduce program errors. 
+Even worse, since executions of deployment can vary from executions of development phase, a lot of programmer errors can be easily leaked to customers.
 
-By contrast, determinism greatly simplifies the understanding and debugging of multithreaded programs. If we can guarantee the same executions for the development phases and the deployment phases, there is no need to worry about the erroneous results. 
+By contrast, determinism greatly simplifies the understanding and debugging of multithreaded programs. We can always guarantee the same executions on both development phases and the deployment phases, thus there is no need to worry about erroneous results. 
 
 \section{False Sharing}
 \label{sec:falsesharingproblems}
 
-\subsection{False Sharing and True Sharing}
+\subsection{Definition}
 % What is the definition of false sharing?
-False sharing occurs when different processors in a shared-memory parallel system are referencing different fields within the same coherence block (page or cache line) simultaneously, thereby inducing ``unnecessary'' coherence operations~\cite{Bolosky:1993:FSE:1295480.1295483}. 
+False sharing occurs when different processors in a shared-memory parallel system are referencing distinct fields within the same coherence block (page or cache line) simultaneously, thereby inducing ``unnecessary'' coherence traffic~\cite{Bolosky:1993:FSE:1295480.1295483}. 
 
-Although it is difficult or impossible to know where a thread runs in an actual execution, we can conservatively assume that different threads run on different processors with separate cache. Thus, in the multithreaded environment, false sharing simply implies: two threads access two different words of the same cache line simultaneously, while one of them is a write operation. False sharing is shown in Figure~\ref{fig:fs}. 
+Although it is difficult or impossible to know where a thread runs in an actual execution, we can conservatively assume that different threads are running on different processors with separate cache. Thus, in the multithreaded environment, false sharing simply implies: multiple threads access distinct parts of the same cache line simultaneously, while one of them is a write operation. False sharing is shown in Figure~\ref{fig:fs}. 
 Based on the relationship of false sharing objects, 
 false sharing can be classified into inter-object and intra-object false sharing. When two different objects in the same cache line are accessed by different threads simultaneously, that is inter-object false sharing. Otherwise, it is intra-object false sharing. 
 
 There is another concept, true sharing, which is opposite of false sharing. In true sharing (Figure~\ref{fig:ts}), multiple threads are accessing the same word. 
+
+There is another way to differentiate false sharing with true sharing. False sharing is avoidable, while true sharing is not. 
 
 \begin{figure*}
 \begin{center} 
@@ -93,19 +92,18 @@ There is another concept, true sharing, which is opposite of false sharing. In t
 
 As shown in Figure~\ref{fig:fsexample}, false sharing only occurs when the size of coherence block is larger than that of a single word. Multiple processors may reference different words of the same coherence block. In this perspective, a single-word block size can avoid false sharing problems. 
 
-However, using a single-word block size is not the actual case. In reality, the size of coherence block (cache line) is normally 32 or 64 bytes. The reason for using multiple words in a cache line is to reduce the groups of transfers between the main memory and the cache since programs always have some spatial locality of reference. Those adjacent words are very likely to be referenced in the future.
+However, using a single-word block size is not the actual case. In reality, the size of a coherence block (cache line) is normally 32 or 64 bytes. The reason of using multiple words in a cache line is to reduce the groups of transfers between the main memory and the cache since programs always have some spatial locality of reference. Those adjacent words are very likely to be referenced in the future.
 
 From the performance perspective, reducing the coherence block size to one word may minimize the data to transferred, but can increase the number of transfers. Thus, the overhead of transferring less data at a time can be larger than the benefit of eliminating false sharing coherence traffic. Actually, the hardware trend of cache line is to increase the size of cache line, which makes false sharing problems increasingly common. 
 
 \subsection{Performance Impact}
 \label{falsesharing}
-False sharing can greatly slow down the execution of multithreaded programs, which depends on many factors, including the cache block size, data layout, program access patterns, and the cost of coherence operations~\cite{Bolosky:1993:FSE:1295480.1295483}. 
+False sharing can greatly slowdown the execution of multithreaded programs, which depends on many factors, including the cache block size, data layout, program access patterns, and the cost of coherence operations~\cite{Bolosky:1993:FSE:1295480.1295483}. 
 
-In a typical shared-memory system, each processor may have a separate cache. In order to increase the access speed, when a processor references a word, all the data inside the same cache line is fetched from the main memory to its corresponding cache. 
-When multiple processors are accessing different words of the same cache line, shared data can be replicated into caches of processors that access them. Thus, it is very important to maintain the coherence across different processors: if any copy has been changed, this change should be propagated to other processors immediately for correctness purposes. This also means that duplicates in other processors must be invalidated at first. This propagation is very time-consuming, because it wastes CPU time and memory bandwidth simultaneously. 
+In a typical shared-memory system, each processor may have a separate cache. In order to increase the access speed, when a processor references a word, all the data inside the same cache line is fetched from the main memory to its orresponding cache. 
+When multiple processors are accessing distinct words of the same cache line simultaneously, the shared data can be replicated into caches of different processors that access this cache line. Thus, it is very important to maintain the coherence across different processors: if any copy is changed, this change should be propagated to other processors immediately for correctness purposes. In real hardware, this data propagation only happens lazily when the data is accessed again, thus duplicates are invalidated at first. When a processor access an invalidated cache line, it should wait for the data propagating from other processors, wasting CPU time and memory bandwidth simultaneously. 
 
-However, in the false sharing case, this propagation is totally unnecessary because different threads are  actually accessing different data of the same cache line. 
-When there are interleaved writes (by different processors) on the same cache line, the ping-pong effect of loading-and-invalidating of data on this cache line can greatly slow the execution of programs. 
+In the false sharing case, this propagation is totally unnecessary because different threads are actually accessing different parts of the same cache line. Thus, there is no need for a processor to get the updated data that is not going to access. However, hardware can only tracks the change of data on the granularity of a cache line and have to propagate those changes if any word has been changed. When there are interleaved writes, issued by different processors, on the same cache line, the ping-pong effect of loading-and-invalidating of data on this cache line can greatly slow the execution of programs. 
 Programs with false sharing can even run slower in a multi-core machine than in a single-core machine, losing the benefit of multiple cores.  
 
 Many common programming practices can easily cause false sharing. For example, different threads accessing different entries of the same global array, listed in Figure~\ref{fig:falsesharingexample}, is such an example. This example has no correctness problem, but a serious performance problem. 
@@ -122,7 +120,8 @@ Many common programming practices can easily cause false sharing. For example, d
 }
 \end{figure*}
 
-We actually run this program on a real machine with 8 cores. On this evaluation, we specifically choose a different number of threads, matching the number of hardware cores, from 1 thread to 8 threads, to perform the same task. Performance results can be seen in Figure~\ref{fig:fsperfimpact}. We can see that false sharing can greatly impact the performance, which causes huge differences between actual performance and the expected performance. We also notice that the performance is even worse when there are more threads and cores. 
+We actually run this program on a real machine with 8 cores and Figure~\ref{fig:fsperfimpact} presents performance results. On this evaluation, we specifically choose a different number of threads, matching the number of hardware cores, from 1 thread to 8 threads, to perform the same amount of workload. We find out that false sharing can greatly impact the performance, which brings around $13\times$ difference between actual performance and the expected performance. Two trends--the prevalence of multicore architectures and
+the expected increase in the number of multithreaded applications in broad use, and increasing cache line sizes--are likely to make false sharing increasingly common.
 
 \begin{figure*}[!t]
 \centering
@@ -136,9 +135,9 @@ False sharing performance impact for the simple program shown in Figure~\ref{fig
 \subsection{Fixing False Sharing}
 There are several ways to fix false sharing problems after they are identified. The basic idea is to prevent multiple threads from accessing the same cache line simultaneously.  
 
-The first way is to change the size of corresponding structure or class. One example of this can be seen in Section~\ref{sec:fsfixexample}.
+The first way is to change the size of corresponding structure or class, by padding some useless words. Thus, we can prevent two threads concurrently accessing the same cache line. One example of prevention, linear\_regression, can be seen in Section~\ref{sec:effecteval}.
 
-The second way is to use thread-local variables to replace those shared variables. The problem shown in Figure~\ref{fig:falsesharingexample} is fixed using this method, shown in Figure~\ref{fig:falsesharingexamplefix}. 
+The second way is to assign the value to thread-local variables at first. Then different threads only update their own local variables, and commit those changes back to the shared variable in the end. For example, the problem shown in Figure~\ref{fig:falsesharingexample} is fixed using this method, see Figure~\ref{fig:falsesharingexamplefix}. 
 
 \begin{figure*}[!ht]
 {\centering
@@ -150,7 +149,7 @@ The second way is to use thread-local variables to replace those shared variable
 }
 \end{figure*}
 
-There are also several existing approaches to fix false sharing problems automatically, described in detail in Section~\ref{sec:fspreventwork}, but they all suffer different shortcomings. 
+Some other approaches, to fix false sharing problems automatically, is described in detail in Section~\ref{sec:fspreventwork}, but they all suffer different shortcomings. 
 
 
 
