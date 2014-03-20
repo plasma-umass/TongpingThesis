@@ -1,27 +1,27 @@
 \label{sec:dthreadsevaluation}
 
-We perform our evaluation on an Intel Core 2 dual-processor CPU system, equipping with 16GB of RAM. Each processor is a 4-core 64-bit Xeon, running on at 2.33GHZ with a 4MB L2 cache. The operating system is an unmodified CentOS 5.5, running with Linux kernel version 2.6.18-194.17.1.el5.
+We perform our evaluation on an Intel Core 2 dual-processor CPU system, equipping with 16GB of RAM. Each processor is a 4-core 64-bit Xeon, running at 2.33GHZ with a 4MB L2 cache. The operating system is an unmodified CentOS 5.5, running with Linux kernel version 2.6.18-194.17.1.el5.
 
 \subsection{Methodology}
 
-We evaluate the performance and scalability of \dthreads{} versus CoreDet and \pthreads{} across the PARSEC~\cite{parsec} and Phoenix~\cite{phoenix-hpca} benchmark suites.  
+We evaluate the performance and scalability of \dthreads{} (versus CoreDet and \pthreads{}) across the PARSEC~\cite{parsec} and Phoenix~\cite{phoenix-hpca} benchmark suites.  
 
-In order to compare performance directly against CoreDet, which relies on the LLVM infrastructure~\cite{LLVM:CGO04}, all benchmarks are compiled with the LLVM compiler at the ``-O5'' optimization level~\cite{LLVM:CGO04}. Since \dthreads{} does not currently support 64-bit binaries, all benchmarks are compiled for 32 bit environments (using the ``-m32'' compiler flag). Each benchmark is executed ten times on a quiescent machine. To reduce the effect of outliers, the lowest and highest execution times for each benchmark are discarded,
-so each result represents the average of the remaining eight runs.
+In order to compare performance directly against CoreDet, which relies on the LLVM infrastructure~\cite{LLVM:CGO04}, all benchmarks are compiled with the LLVM compiler at the ``-O3'' optimization level~\cite{LLVM:CGO04}. Since \dthreads{} does not currently support 64-bit binaries, all benchmarks are compiled for 32 bit environments (using the ``-m32'' compiler flag). Each benchmark is executed ten times on a quiescent machine. To reduce the effect of outliers, results with the worst and best performance for each benchmark are discarded,
+so each result is the average of the remaining eight runs.
 
 \textbf{Tuning CoreDet:} 
 The performance of CoreDet~\cite{Bergan:2010:CCR:1736020.1736029} is extremely sensitive to three parameters: the granularity for the ownership table (in bytes), the quantum size (in number of instructions retired), and the choice between full serial mode and reduced serial mode. We compare the performance and scalability of \dthreads{} with the best possible results that we could obtain for CoreDet on our system---that is, with the lowest average normalized
-runtimes---after an extensive search of the parameter space (six possible granularities and 8 possible quanta, for each benchmark). The results presented here are for a 64-byte granularity, a quantum size of 100,000 instructions, and in full serial mode.
+runtime---after an extensive search of the parameter space (six possible granularities and 8 possible quanta, for each benchmark). The results presented here are for a 64-byte granularity, a quantum size of 100,000 instructions, and in full serial mode.
 
 \textbf{Unsupported Benchmarks}: We do not include results for 7 benchmarks from PARSEC, since they do not currently work with \dthreads{} (note that many of these also do not work for CoreDet). \texttt{vips} and \texttt{raytrace} would not build as 32-bit executables; \texttt{bodytrack}, \texttt{facesim}, and \texttt{x264} depend on sharing of stack variables;
-\texttt{fluidanimate} uses ad-hoc synchronization, so it will not run without modifications; and \texttt{freqmine} does not use \pthreads{}.
+\texttt{fluidanimate} uses ad-hoc synchronization, so it cannot run without modifications; and \texttt{freqmine} does not use \pthreads{}.
 
  
-\textbf{Scalability Experiment}: For all scalability experiments, we logically disable CPUs using Linux's CPU hotplug mechanism, which allows us to disable or enable individual CPUs by writing ``0'' (or ``1'') to a special file (\texttt{/sys/devices/system/cpu/cpuN/online}).
+\textbf{Scalability Experiment}: For all scalability experiments, we logically disable CPUs using Linux's CPU hotplug mechanism, which allows us to disable or enable a specific CPU by writing ``0'' or ``1'' to a file: \texttt{/sys/devices/system/cpu/cpuN/online}.
 
 \subsection{Determinism}
 
-We first experimentally verify \dthreads{}' ability to ensure determinism by executing the \emph{racey} determinism tester~\cite{1508256}. This stress test contains, as its name suggests, numerous data races and is thus extremely sensitive to memory-level non-determinism. \dthreads{} reports the same results for 2,000 runs. We also compared the schedules and outputs of all benchmarks used to ensure that every execution is identical.
+We first experimentally verify \dthreads{}' ability to ensure determinism by executing the \emph{racey} determinism tester~\cite{1508256}. This stress test contains, as its name suggests, numerous data races and is thus extremely sensitive to memory-level non-determinism. \dthreads{} reports the same results for 2,000 runs. We also verify that the schedules and outputs of all benchmarks of every execution are identical.
 
 \subsection{Performance}
 \label{sec:performance}
@@ -60,16 +60,13 @@ We first experimentally verify \dthreads{}' ability to ensure determinism by exe
 \caption{Benchmarks: normalized execution time and input parameters.\label{tbl:benchmarks}}
 \end{table*}
 
-We next compare the performance of \dthreads{} to CoreDet
-and \pthreads{}. Figure~\ref{fig:performance} presents these results graphically (normalized to \pthreads{}); Table~\ref{tbl:benchmarks} provides detailed information about the normalized execution time and input parameters.
+For performance, We compare \dthreads{} to CoreDet
+and \pthreads{}. Figure~\ref{fig:performance} presents these results graphically (normalized to the runtime of \pthreads{}); Table~\ref{tbl:benchmarks} provides detailed information about the normalized execution time and input parameters.
 
 \dthreads{} outperforms CoreDet on 12 out of 14 benchmarks (running between 20\% and $12\times$ faster). For 9 benchmarks, \dthreads{} runs nearly the same as or better
-performance than \texttt{pthreads}. Because \dthreads{} isolates updates in separate processes, it can improve performance by eliminating false sharing: since concurrent ``threads'' actually execute in different physical pages, there is no coherence traffic caused by false sharing between synchronization points. \dthreads{} eliminates catastrophic false sharing in the \texttt{linear\_regression} benchmark, allowing it to execute over $8\times$ faster than \pthreads{} and $12\times$ faster than CoreDet. The \texttt{string\_match} benchmark exhibits a similar, though less dramatic, false sharing problem, allowing \dthreads{} to run almost 56\% faster than \pthreads{} and $9\times$ faster than CoreDet. Two benchmarks, \texttt{histogram} and \texttt{swaptions}, also run faster with \dthreads{} than with \pthreads{} ($2\times$ and $6\%$, respectively; $2.7\times$ and $9\times$ faster than with CoreDet). We believe but have not yet verified that the reason is false sharing.
+performance than \texttt{pthreads}. Because \dthreads{} isolates updates in separate processes, it can improve performance by eliminating false sharing: since concurrent ``threads'' actually perform at different physical pages, there is no coherence traffic caused by false sharing between synchronization points. \dthreads{} eliminates catastrophic false sharing in the \texttt{linear\_regression} benchmark, allowing it to execute over $8\times$ faster than \pthreads{} and $12\times$ faster than CoreDet. The \texttt{string\_match} benchmark exhibits a similar, though less dramatic, false sharing problem, allowing \dthreads{} to run almost 56\% faster than \pthreads{} and $9\times$ faster than CoreDet. Two benchmarks, \texttt{histogram} and \texttt{swaptions}, also run faster with \dthreads{} than with \pthreads{} ($2\times$ and $6\%$, respectively; $2.7\times$ and $9\times$ faster than with CoreDet). We believe but have not yet verified that the reason is false sharing.
 
-For some benchmarks, \dthreads{} incurs modest overhead. For example, unlike most benchmarks examined here, which create long-lived threads, the \texttt{kmeans} benchmark creates and destroys over 1,000 threads in the course of its execution. 
-While Linux processes are relatively lightweight, creating and exiting a process is still more expensive than the same operations of threads, though it runs $5.5\times$ faster than CoreDet.
-
-\dthreads{} runs substantially slower than \pthreads{} for 4 of the 14 benchmarks examined here. The \texttt{ferret} benchmark relies on an external library to analyze image files during the first stage in its pipelined execution model; this library makes intensive (and in the case of \dthreads{}, unnecessary) use of locks. Lock acquisition and release in \dthreads{} imposes higher overhead than ordinary \pthreads{} mutex operations. More importantly in this case, the intensive use of locks in one stage forces \dthreads{} to effectively serialize the other stages in the pipeline, which must repeatedly wait on these locks to enforce a deterministic lock acquisition order. The other three benchmarks (\texttt{canneal}, \texttt{dedup}, and \texttt{reverse\_index}) modify a large number of pages. With \dthreads{}, each page modification triggers a segmentation violation, a system call to change memory protection, the creation of a private copy of the page, and a subsequent copy into the shared space on commit (see Section~\ref{sec:future-work} for planned optimizations that may reduce this cost). We note that CoreDet also substantially degrades performance for these benchmarks, so much of this slowdown may be inherent to any deterministic runtime system.
+\dthreads{} runs substantially slower than \pthreads{} for 4 of the 14 benchmarks examined here. The \texttt{ferret} benchmark relies on an external library to analyze image files during the first stage in its pipelined execution model; this library makes intensive (and in the case of \dthreads{}, unnecessary) use of locks. Lock acquisitions and deacquisitions in \dthreads{} imposes higher overhead than ordinary \pthreads{} mutex operations. More importantly in this case, the intensive use of locks in one stage forces \dthreads{} to effectively serialize the other stages in the pipeline, which must repeatedly wait on these locks to enforce a deterministic lock acquisition order. The other three benchmarks (\texttt{canneal}, \texttt{dedup}, and \texttt{reverse\_index}) modify a large number of pages. With \dthreads{}, each page modification triggers a segmentation violation, a system call to change memory protection, the creation of a private copy of the page, and a subsequent copy into the shared space during commit phases. We note that CoreDet also substantially degrades performance for \texttt{dedup} and \texttt{reverse\_index}), so much of this slowdown may be inherent to any deterministic runtime system.
 
 \subsection{Scalability}
 \input{dthreads/scalability}
@@ -80,13 +77,13 @@ While Linux processes are relatively lightweight, creating and exiting a process
 \subsubsection{Benchmark Characteristics}
 
 The data presented in Table~\ref{tbl:characteristics} are obtained from the executions running on all 8 cores.  Column 2 shows the percentage of time spent in serial phases.  In \dthreads{}, all memory commits and actual synchronization operations are performed in serial phases.  The percentage of time spent in serial phases thus can affect performance and scalability. Applications with higher overhead in \dthreads{} often spend a higher percentage of time in
-serial phases, primarily because they modify a large number of pages that need to be committed during those phases.
+serial phases, primarily because they modify a large number of pages that need to be committed during serial phases.
 
 Column 3 shows the number of transactions in each application and Column 4 provides the average length of each transaction (ms).  Every synchronization, including locks, conditional variable, barriers, and thread exits, demarcate transaction boundaries in \dthreads{}.  For example, \texttt{reverse\_index}, \texttt{dedup}, \texttt{ferret}
 and \texttt{streamcluster} perform numerous transactions whose
-execution time is less than 1ms, imposing a performance penalty for these applications.  Benchmarks with longer (or fewer) transactions run almost the same speed as or faster than \texttt{pthreads}, including \texttt{histogram} or \texttt{pca}.  In \dthreads{}, longer transactions amortize the overhead of memory protection and copying over a longer period, thus achieving less performance overhead.
+execution time is less than 1ms, imposing a performance penalty for these applications.  Benchmarks with longer (or fewer) transactions run almost the same speed as or faster than \texttt{pthreads}, including \texttt{histogram} or \texttt{pca}.  In \dthreads{}, longer transactions amortize the overhead of memory protection and copying over a longer period, thus reducing performance overhead.
 
-Column 5 and 6 provides more detail on the costs associated with memory updates (the number and total volume of dirtied pages). From the table, it is clear why \texttt{canneal} (the most notable outlier) runs much slower with \dthreads{} than with \pthreads{}. This benchmark updates over three million pages, leading to large performance overhead caused by creating private copies, handling protection faults, and committing modifications on those pages to the shared memory space. 
+Column 5 and 6 provides more detail on the costs associated with memory updates (the number and total volume of dirtied pages). From the table, it is clear why \texttt{canneal} (the most notable outlier) runs much slower with \dthreads{} than with \pthreads{}. This benchmark updates over three million pages, leading to large performance overhead caused by creating private copies, handling protection faults, and committing modifications on those pages to the shared memory mapping. 
 
 \textbf{Conclusion: }
 Most benchmarks examined here contain either a small number of transactions, thus having long running transactions, and modify a modest number of pages during execution. For these applications, \dthreads{} is able to amortize its overhead: by eliminating false sharing, it can even run faster than \pthreads{}. However, for the few benchmarks that perform numerous short-lived transactions, or modify a large amount of pages, \dthreads{} can introduce substantial overhead.
@@ -128,9 +125,9 @@ Most benchmarks examined here contain either a small number of transactions, thu
 \subsubsection{Performance Impact Analysis}
 We further evaluate the performance impact of two important components of \dthreads: deterministic synchronization (sync-only) and memory protection(prot-only).
 
-\emph{Sync-only}: This configuration enforces a deterministic synchronization order. However, memory protection is not enabled so different processes access the shared memory directly. We want to use this to show the performance impact of load imbalance, caused by synchronization based scheduling.
+\emph{Sync-only}: This configuration enforces a deterministic synchronization order. However, memory protection is not enabled so all ``threads'' (actually processes) access the shared memory directly. We want to use this to show the performance impact of load imbalance, caused by synchronization based scheduling.
 
-\emph{Prot-only}: This configuration runs threads in isolation, with commits at synchronization points. The order of synchronization and memory commits are non-deterministic. This configuration eliminates false sharing, but also introduces the performance overhead of isolation and memory commits. In order to guarantee correct execution, we replaced those synchronizations as corresponding cross-processes synchronizations. The lazy twin creation and single-threaded execution optimizations are disabled here because they are unsafe without deterministic synchronization. Thus, this configuration actually evaluates the performance of using the \sheriff{} framework. 
+\emph{Prot-only}: This configuration runs threads in isolation, and commits at synchronization points. The order of synchronization and memory commits are non-deterministic. This configuration eliminates false sharing, but also introduces the performance overhead of isolation and memory commits. In order to guarantee correct execution, we replaced those synchronizations as corresponding cross-processes synchronizations. The lazy twin creation and single-threaded execution optimizations are disabled here because they are unsafe without deterministic synchronization. Thus, this configuration actually evaluates the performance of the \sheriff{} framework. 
 
 
 \begin{figure*}[!t]
@@ -149,13 +146,13 @@ The performance results of these two configurations are shown in Figure~\ref{fig
 The \texttt{reverse\_index}, \texttt{dedup} and \texttt{ferret} benchmarks show significant load imbalance under {\it sync-only} configuration. Additionally, these benchmarks introduces significant overhead with {\it prot-only} configuration because of a large number of transactions there. That explains why \dthreads{} doesn't have good performance on these benchmarks.
 
 \item
-The \texttt{string\_match} benchmark shows performance improvement with {\it sync-only} configuration. The exact reason is not clear, may be due to the per-thread allocator. 
+The \texttt{string\_match} benchmark shows performance improvement with {\it sync-only} configuration. The exact reason is not clear, may be due to our custom memory allocator (described in Section~\ref{sec:customheap}) that eliminates false sharing problems. 
 
 \item
-The \texttt{linear\_regression}, \texttt{histogram} and \texttt{swaptions} benchmarks improve performance with {\it prot-only} configuration. The memory isolation mechanism eliminates the false sharing problem inside and contributes to the performance speedup.
+The \texttt{linear\_regression}, \texttt{histogram} and \texttt{swaptions} benchmarks improve performance with {\it prot-only} configuration. The memory isolation mechanism eliminates false sharing problems inside and contributes to the performance speedup.
 
 \item
-Normally the performance of \dthreads{} is not better than the performance of {\it prot-only} configuration. However, both \texttt{ferret} and \texttt{canneal} run faster with determinism enabled. Both are benefited from specific optimization described in Section~\ref{sec:dthreads-optimization}. \texttt{ferret} benefits from the \emph{single-threaded-execution}. The performance improvement of \texttt{canneal} is coming from shared twin pages for all threads in the phase.
+Normally the performance of \dthreads{} is not better than the performance of the {\it prot-only} configuration. However, both \texttt{ferret} and \texttt{canneal} run faster with determinism enabled (under \dthreads{}). Both are benefited from specific optimization described in Section~\ref{sec:dthreads-optimization}. \texttt{ferret} benefits from the \emph{single-threaded-execution}. The performance improvement of \texttt{canneal} is coming from the shared twin pages for all threads in parallel phases.
 
 \end{itemize}
 
