@@ -21,8 +21,7 @@ When the offset of the starting address between the potentially falsely-shared o
 When the offset is $24$ bytes, we see the most severe performance effect caused by false sharing. 
 The performance difference caused by false sharing can affect the performance as large as $15\times$ on an 8-core machine. 
 
-Existing detection tools can only report observed false sharing. That means, they may miss a very severe false sharing problem that could occur in the wild if the offset of the starting address was $0$ bytes or $56$ bytes in their test environment.
-\Predator{} overcomes this shortcoming by accurately predicting potential false sharing, without the need of occurrences. 
+Existing detection tools can only report observed false sharing. That means, they may miss such a very severe false sharing problem that could occur in the wild if the offset of the starting address was $0$ bytes or $56$ bytes in their test environment. \Predator{} overcomes this shortcoming by accurately predicting potential false sharing, without the need of occurrences. 
 
 \begin{figure*}
 \begin{center} 
@@ -46,49 +45,45 @@ Existing detection tools can only report observed false sharing. That means, the
 \label{fig:potentialfalsesharing}
 \end{figure*}
 
-\Predator{} predicts {\it potential false sharing}, the type of false sharing that does not manifest in the current execution but may appear and greatly affect the performance of programs in a slightly different environment.
+\Predator{} predicts {\it potential false sharing}, which does not manifest in the current execution but may appear and greatly affect performance of programs in a slightly different environment.
 
 Figure~\ref{fig:potentialfalsesharing} shows a simplified example why occurrences of false sharing can change in different situations. 
 In this figure, two rectangles with different patterns
-represents two portions of the same object, updated by different threads. In Figure~\ref{fig:nofs}), there is no false sharing when thread T1 only updates 
+represents two portions of the same object, updated by different threads. In Figure~\ref{fig:nofs}, there is no false sharing when thread T1 only updates 
 ``cache line 1'' and T2 only updates ``cache line 2''.
 However, false sharing appears in one of the following cases, even with the same
 access pattern. 
 
 \begin{itemize}
 \item
-Doubling cache line size (Figure~\ref{fig:fslarger}). When the size of a cache line doubles, both T1 and T2 access the same cache line and false sharing occurs in this case.
+Doubling cache line size (Figure~\ref{fig:fslarger}). When the size of a cache line doubles, both T1 and T2 access the same cache line concurrently, thus causing false sharing.
 
 \item
 Different starting address of an object(Figure~\ref{fig:fsnoalignment}).  
-When the starting address of this object is not aligned with the starting address of 
-the first cache line, 
-then T1 and T2 can update the second cache line simultaneously, 
-causing a false sharing problem. 
+When the starting address of this object is not aligned with the starting address of the first cache line, then T1 and T2 can update the second cache line simultaneously, causing a false sharing problem. 
 %When some dynamic property changes the starting address of this object so that it 
 %is not aligned with the starting address of the first cache line, 
 \end{itemize} 
 
-\Predator{} predicts whether programs can have potential false sharing in one of these two situations, where they can be caused by different dynamic properties. These dynamic properties include choosing different compiler, enabling different compiler optimizations, using different memory allocator, adding or removing code involving in memory allocations, changing different target platforms such as address mode (32-bit or 64-bit), and changing the size of cache line (64 Bytes or 128 Bytes). 
-All dynamic properties, except changing the size of cache line, can lead to different memory layout, thus can possibly affect the occurrences of a false sharing problem. Thus, predicting false sharing in changing the memory layout or changing the size of cache line actually explores many possibilities caused by all of these dynamic properties.
+\Predator{} predicts whether programs can have potential false sharing in one of these two situations, where they can be caused by different dynamic properties. These dynamic properties include choosing a different compiler, enabling different compiler optimizations, using a different memory allocator, adding or removing code involving in memory allocations, switching to a different target platform with a different address mode (32-bit or 64-bit), and changing the size of cache line (64 Bytes or 128 Bytes). 
+All dynamic properties, except changing the size of cache line, can lead to a different memory layout, thus can possibly affect occurrences of a false sharing problem. Thus, predicting false sharing in changing the memory layout or changing the size of cache line actually explores many possibilities caused by all of these dynamic properties.
 
 \subsection{Basic Prediction Workflow}
 \label{sec:predictionmechanism} 
 
 %Similar to the detection part, 
-\Predator{} focuses exclusively on potential false sharing that can 
+\Predator{} focuses on potential false sharing that can 
 cause performance problems.
-The implementation is based on
-two key observations. First, only accesses to 
-adjacent cache lines can form potential false sharing, 
-i.e., introducing cache invalidations when cache line size
+It is based on two key observations. First, only accesses to 
+adjacent cache lines can lead to potential false sharing, 
+i.e., introducing cache invalidations when the cache line size
 or an object's starting address changes.
 Second, only those cache lines with a large number of cache invalidations can degrade performance.
 
 Based on these two observations, \Predator{} develops 
-the following workflow to capture potential false sharing.
+the following workflow to predict potential false sharing.
 Those detection optimizations listed in Section~\ref{optimization} can also be applied
-to the prediction part. We do not repeat these optimizations in this section.
+to here. We do not repeat these optimizations in this section.
 
 \begin{enumerate}
 \item
@@ -113,15 +108,18 @@ Otherwise, go back to Step 2 to track more detailed accesses.
 
 \subsection{Searching for Potential False Sharing}
 \label{sec:evaluatingfs}
-To describe potential false sharing in two different cases, we first 
-introduce the concept of a ``virtual cache line''.  A virtual cache line is a contiguous memory range that spans one or more physical cache lines.  In the case of double cache line size, a virtual line is composed of two originally contiguous cache lines, where it starts with a even number cache line.  Thus, only cache lines $2*i$ and $2*i+1$ can form a virtual cache line.  To evaluate a potential false sharing problem that can be caused by the change of memory layout, a virtual line should have the same size as physical lines, but with a  arbitrary starting addresss: unlike actual cache lines, the
-starting address of a virtual cache line does not need to be multiple of the cache line size.  For instance, a 64-byte-long virtual line can consist of the range $[0,64)$ bytes or $[8,72)$ bytes.
+To describe potential false sharing in two different cases, we first introduce a concept -- ``virtual cache line''.  A virtual cache line is a contiguous memory range that spans one or more physical cache lines.  
+
+In the case of double cache line size, a virtual line is composed of two originally contiguous cache lines, where it starts with a even number cache line.  Thus, only cache lines $2*i$ and $2*i+1$ can form a virtual cache line.  
+
+To evaluate a potential false sharing problem that can be caused by changing memory layout, a virtual line should have the same size as an actual cache line, but with a different starting address: unlike actual cache lines, the
+starting address of a virtual cache line does not need to be multiple of the cache line size. For instance, a 64-byte-long virtual line can consist of the range $[0,64)$ bytes or $[8,72)$ bytes.
 
 To search for a potential false sharing problem, 
-\Predator{} searches for a pair of hot accesses, one on $L$ and one on its previous or next cache line. Two accesses happening in the same actual cache line should be detected by the normal detection mechanism, thus we do not need to care about them. 
+\Predator{} searches for a pair of hot accesses, one on $L$ and one on its previous or next cache line, based on detailed word information collected in Step 2. Two accesses happening in the same actual cache line should be detected by the normal detection mechanism, thus they can lead to actual false sharing problems but not a potential false sharing problem. 
 
-\predator{} analyzes the detailed information of word accesses collected in Step 2. A hot access refers to an access that has the number of read or write accesses larger than the average number of accesses. In fact, for every hot access $X$ in a specific cache line $L$, \Predator{} searches another
-hot access $Y$ in $L$'s the previous cache line or next cache line, satisfying the following conditions: 
+A hot access refers to an access that has the number of read or write accesses larger than the average number of accesses. In fact, for every hot access $X$ in a specific cache line $L$, \Predator{} searches another
+hot access $Y$ in $L$'s previous cache line or next cache line, satisfying the following conditions: 
 
 \begin{itemize}
 \item
@@ -137,12 +135,9 @@ $X$ and $Y$ are issued by different threads.
 
 % why it finds a pair of $X$ and $Y$ == a potential false sharing 
 Whenever it finds such a pair, $X$ and $Y$, 
-\Predator{} identifies a potential performance-degrading false sharing problem since the number of cache invalidations possibly caused by $X$ and $Y$ (on a possible virtual line), 
-can be larger than the average number of accesses. 
-This approach is based on a similar observation as in detection: \emph{if a thread writes a virtual line after other threads have accessed the same virtual line, this write operation causes at least one cache invalidation}. 
+\Predator{} identifies a potential false sharing problem: they can degrade performance when the number of cache invalidations possibly caused by $X$ and $Y$ (on a possible virtual line), is larger than a pre-defined threshold. This approach is based on a similar observation as in detection: \emph{if a thread writes a virtual line after other threads have accessed the same virtual line, this write operation causes at least one cache invalidation}. 
 
-However, before tracking detailed memory accesses on a virtual line, it is impossible to know exactly how many cache invalidations happen on a virtual line. Thus, \Predator{} conservatively assumes that accesses from different threads occurs in a interleaved way, with the maximum number of cache invalidations. This approach ensures that \Predator{} will not miss any potential false sharing as well as 
-not reporting false positives.  
+However, before tracking detailed memory accesses on a specific virtual line, it is impossible to know exactly how many cache invalidations actually happen on this virtual line. Thus, \Predator{} conservatively assumes that accesses from different threads occurs in a interleaved way, with the maximum number of cache invalidations. Then \Predator{} starts to track possible cache invalidations on a virtual covering both $X$ and $Y$, described in Section~\ref{sec:tracking}.  
 
 %According to above observation and assumption, 
 %a pair of hot accesses, $X$ and $Y$, if accesses are issued in an interleaving 
@@ -150,24 +145,22 @@ not reporting false positives.
 %the smaller number of accesses of $X$ and $Y$.
 %Thus a false sharing problem is to be identified by \Predator{}.
   
-After identifying possible false sharing, \Predator{} goes to Step 4 to verify whether this is an actual false sharing problem. 
 
 \subsection{Verifying Potential False Sharing}
 \label{sec:tracking}
 
-\Predator{} verifies potential false sharing by tracking possible cache invalidations on a problematic virtual line.
+\Predator{} verifies potential false sharing by tracking possible cache invalidations on a specific virtual line covering such a hot access pair, $X$ and $Y$.
 %covering a pair of hot accesses found
 %in Step 3.
 
 For potential false sharing caused by double cache line size, as described in Section~\ref{sec:evaluatingfs}, a virtual line is always composed of cache line with index $2*i$ and $2*i+1$. 
-\Predator{} tracks cache invalidations on the virtual line on which false sharing has been discovered.
+\Predator{} tracks cache invalidations on a virtual line that covering $X$ and $Y$. This virtual line is unique for a given $X$ and $Y$ pair. 
 
-However, for the case of a change in starting address,
-two hot accesses with distance less than the cache line size 
+However, for the case of changing memory layout, two hot accesses with distance less than the cache line size 
 can actually form multiple virtual lines. 
-There is thus an additional step to determine which virtual line to be tracked.
-Although the virtual line to be chosen here is never a real cache line of actual hardware because of unaligned addresses,
-we utilize this virtual line to simulate the effect of changing the memory layout.
+There is thus an additional step to determine which virtual line to be tracked. 
+Although a virtual line to be chosen here is never a real cache line of actual hardware because of unaligned addresses,
+we utilize this virtual line to simulate the effect of changing memory layout correspondingly.
 
 
 \begin{figure}
@@ -178,11 +171,9 @@ we utilize this virtual line to simulate the effect of changing the memory layou
 \label{fig:trackpotential}
 \end{figure}
 
-Given two words with the hot accesses shown in Figure~\ref{fig:trackpotential}, \Predator{} leaves the same space before $X$ and after $Y$ in determining a virtual line to be tracked. That is, the virtual line starting at location $X-((sz-d)/2)$ and ending at $Y+((sz-d)/2)$ is tracked. 
-This choice allows tracking of more possible cache invalidations caused by adjacent accesses of $X$ and $Y$. 
-Since adjusting the starting address of a virtual line has the same effect of adjusting the starting address of an object in detecting false sharing, all cache lines related to the same object must be adjusted at the same time. \Predator{} then tracks cache invalidations based on these adjusted virtual lines.
+Figure~\ref{fig:trackpotential} shows that multiple virtual lines can cover $X$ and $Y$. However, \Predator{} only chooses one of these virtual lines. \Predator{} chooses the virtual line that leaves the same space before $X$ and after $Y$. That is, the virtual line starting at location $X-((sz-d)/2)$ and ending at $Y+((sz-d)/2)$ is tracked by \Predator{}. This choice allows tracking of more possible cache invalidations caused by adjacent accesses of $X$ and $Y$. Since adjusting the starting address of a virtual line has the same effect of adjusting the starting address of an object in detecting false sharing, all cache lines related to the same object must be adjusted at the same time. \Predator{} then tracks cache invalidations based on these adjusted virtual lines.
 
 In the end, \Predator{} can report accurately whether the change of memory layout can affect the performance or not, based on the possible number of cache invalidations. 
 
-Currently, \predator{} only determines a specific virtual line to be tracked. However, we plan to choose different virtual lines in the future work, when the current choose cannot reveal a big number of cache invalidations. 
+Currently, \predator{} only determines a specific virtual line to be tracked. However, we plan to extend this in the future work by using a much more flexible mechanism: we can choose a different virtual line after a number of accesses if the current choose cannot reveal a big number of cache invalidations.
 
