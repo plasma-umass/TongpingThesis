@@ -8,7 +8,7 @@
 %     a. Thread Creation and Exits
 %     b. Synchronizations?
 %     c. Custom Memory Allocator. how to share memory across different threads
-%     d. Twining and diffing mechanism
+%     d. Twinning and diffing mechanism
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -65,11 +65,11 @@ In order to create the shared memory illusion for the process-as-threads framewo
 
 \sheriff{} creates two different mappings for both the heap and the globals. One is a shared mapping, which is used to hold the shared state. Another is a private, copy-on-write(COW) mapping (per-process) that each process works on directly. User applications can only access  private mappings. 
 
-Private mappings are linked to shared mappings through the same memory mapped file. In the isolated mode, reads initially go to the shared mapping until the first write on a page. After the first write operation, both reads and writes happen on the private mappings only. In order to achieve the shared memory illusion, \sheriff{} commits the current thread's local changes to the shared mapping at synchronization points using the Twinning-and-diffing mechanism described in Section~\ref{sec:twinning-and-diffing}. More details of this are discussed in Section~\ref{sec:sherifftransaction}.
+Private mappings are linked to shared mappings through the same memory mapped file. In the isolated mode, reads initially go to the shared mapping until the first write on a page. After the first write operation, both reads and writes happen on the private mappings only. In order to achieve the shared memory illusion, \sheriff{} commits the current thread's local changes to the shared mapping at synchronization points using the twinning-and-diffing mechanism described in Section~\ref{sec:twinning-and-diffing}. More details of this are discussed in Section~\ref{sec:sherifftransaction}.
 
 In the initialization phase, \sheriff{} checks its \texttt{/proc/pid/maps} file to find the range of its globals and creates a shared mapping for the globals. For the heap, \sheriff{} uses a customized memory allocator, which is discussed in Section~\ref{sec:customheap}. 
 
-\subsection{Twinning and Diffing mechanism}
+\subsection{Twinning-and-Diffing mechanism}
 \label{sec:twinning-and-diffing}
 In order to find out those local changes made by each thread, \sheriff{] borrows the twin page mechanism, which is introduced in TreadMarks and Munin~\cite{dsm:treadmarks, dsm:munin} for tracking modifications on a page in the distributed share memory system.
 

@@ -95,7 +95,7 @@ Figure~\ref{fig:architecture} shows the steps to track modifications of every th
 
 At the beginning of parallel phases, different threads have a read-only mapping for all shared pages. In parallel phases, if a thread writes to a page, this write is trapped in order to create a private copy and a identical twin page for this page. After that, reads and writes on this page happen on the private copy only. For those non-trapped pages, reads still go directly to the shared state.  
 
-In serial phases, threads first commit their local changes that made in last parallel phase, guided by the global token.  The first thread  committing to a page can directly copy its private working copy to the shared state (page-based commits), but subsequent commits can only commit the modified bytes (byte-based commits), using the diffing and twinning mechanism discussed in Section~\ref{sec:twinning-and-diffing}. The byte-based commits are much slower than the page-based commits, but  they won't overwritten changes committed by those predecessors.  After a thread commits its local changes, it issues synchronizations before it passes the token to its next thread in the token-passing queue. 
+In serial phases, threads first commit their local changes that made in last parallel phase, guided by the global token.  The first thread  committing to a page can directly copy its private working copy to the shared state (page-based commits), but subsequent commits can only commit the modified bytes (byte-based commits), using the twinning-and-diffing mechanism discussed in Section~\ref{sec:twinning-and-diffing}. The byte-based commits are much slower than the page-based commits, but  they won't overwritten changes committed by those predecessors.  After a thread commits its local changes, it issues synchronizations before it passes the token to its next thread in the token-passing queue. 
 
 In the end of serial phases, every thread has to release those private pages and twin pages, recover the read-only mapping, wait at the internal fence before entering into the next parallel phase. By removing those private pages and recovering those mappings, a thread is able to observe changes made by other threads, achieving the shared memory semantics. 
 
@@ -175,7 +175,7 @@ In order to improve the parallelism and performance, a thread is allowed to crea
 
 The newly spawned child obtains the global thread index (line 5), places itself in the token-passing queue (line 6), and notifies the parent that registration has finished(line 7). Then it waits for the notification from the parent to proceed when the parent to reach the next synchronization point, not a thread creation.  In this way, we can allow a parent thread to create multiple children threads in the same serial phase. 
 
-When \texttt{thread\_exit()} is called, the caller first waits for the global token before committing any local modifications (line 3). It then removes itself from the token-passing queue (line 4), and decreases the number of alive threads (line 5). Finally, it passes the gobal token to the next thread in the token queue (line 6) and exits (line 7).
+When \texttt{thread\_exit()} is called, the caller first waits for the global token before committing any local modifications (line 3). It then removes itself from the token-passing queue (line 4), and decreases the number of alive threads (line 5). Finally, it passes the global token to the next thread in the token queue (line 6) and exits (line 7).
 
 \subsubsection{Thread Cancellation}
 

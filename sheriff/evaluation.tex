@@ -1,6 +1,6 @@
 \label{sec:evaluation}
 
-We perform all of our evaluations on a quiescent dual processor (totally 8 cores) system with 8GB of RAM. Each processor is a 4-core 64-bit Intel Xeon, running at 2.33 Ghz with a 4MB L2 cache. For compatibility reasons, we compile all applications to a 32-bit target using the GCC compiler. All performance data is the average of ten runs, excluding the maximum and minimum values.
+We perform all of our evaluations on a quiescent dual processor (totally 8 cores) system with 8GB of RAM. Each processor is a 4-core 64-bit Intel Xeon, running at 2.33 GHz with a 4MB L2 cache. For compatibility reasons, we compile all applications to a 32-bit target using the GCC compiler. All performance data is the average of ten runs, excluding the maximum and minimum values.
 
 The evaluation answers the following questions:
 
@@ -145,7 +145,7 @@ Unfortunately, the size of \texttt{struct lreg\_args} is not large enough (only 
 The false sharing problem detected in \texttt{streamcluster} (one of the PARSEC benchmarks) is similar to that in \texttt{linear\_regression}: two different threads are writing to the same cache line. Examination of the source code indicates that the author tried to avoid false sharing by padding, but the amount of padding, 32 bytes, was insufficient to accommodate the actual physical cache line size used in the evaluation (64 bytes). Setting the \texttt{CACHE\_LINE} macro to 64 bytes reduces the effect of false sharing, improving the performance by 5.4\%.
 
 
-\subsubsection{Ease of locating false sharing problems}
+\subsubsection{Ease of Locating False Sharing Problems}
 
 \label{sec:fsfixexample}
 
@@ -322,5 +322,5 @@ We also examine the effectiveness of eliminating false sharing problems of using
 Using \SheriffProtect{}, three benchmarks runs up to 47\% slower than using \pthreads{} because of different reasons. 
 \texttt{kmeans} creates more than 3000 threads in eight seconds. Since the overhead of creating one process is higher than that of creating one thread, this dominates most of its overhead. For \texttt{reverse\_index} and \texttt{fluidanimate}, they exhibit slowdown because of using the processes-as-threads framework: Operating on those file-based pages is more expensive than operating on anonymous pages (the normal status of heap pages) under the Linux operating system; Writing to one page (\texttt{MAP\_SHARED}) cause a Copy-On-Write operation in the kernel even when there is only one user.  
 
-\texttt{fluidanimate} has an enormous number of transactions(18 Million), \sheriffprotect{} 
+Because \texttt{fluidanimate} has an enormous number of transactions(18 Million), \sheriffprotect{} 
 introduces some additional overhead for every transaction. That also accounts for part of overhead.

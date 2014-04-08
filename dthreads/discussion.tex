@@ -13,7 +13,7 @@ CoreDet orders updates to the shared memory by
 instrumenting all memory accesses that could reference shared data. Synchronization operations and updates to shared memory must be performed in serial phases, unless those updates are performed by owners of a block, which can issued in parallel phases. This approach results in high instrumentation overhead during parallel phases, but incurs no additional overhead when exposing updates to the shared state since they are shared already.
 
 \dthreads{} takes an alternate approach: updates proceed at full speed, but are isolated using hardware-supported virtual memory.  When a serial phase is reached, these updates are committed to the shared state in a deterministic order, with
-the help of the twinning and diffing mechanism described in Section~\ref{sec:twinning-and-diffing}.
+the help of the twinning-and-diffing mechanism described in Section~\ref{sec:twinning-and-diffing}.
 
 A pleasant side-effect of \dthreads{} is the elimination of false sharing. Because threads work in separate address spaces, there is no need to keep caches coherent between threads during parallel phases.  For some programs, this results in a performance improvement as large as $7\times$ when compared to
 \pthreads{}.

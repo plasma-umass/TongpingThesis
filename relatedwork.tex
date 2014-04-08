@@ -23,7 +23,7 @@ Revisions~\ref{Burckhardt:2010:CPR:1869459.1869515}
 \section{Deterministic Multithreading}
 The research on deterministic multithreading is a very active area these years. We describe some software-only, non- language-based approaches here.
 
-Grace prevents deadlocks, race conditions, ordering and atomicity violations errors for those fork-join multithreaded programs by imposing a sequential semantics at join points~\cite{grace}. However, Grace does not support programs with interthread communications, such as conditional variables and barriers.
+Grace prevents deadlocks, race conditions, ordering and atomicity violations errors for those fork-join multithreaded programs by imposing a sequential semantics at join points~\cite{grace}. However, Grace does not support programs with inter-thread communications, such as conditional variables and barriers.
 
 CoreDet is a compiler-based approach to 
 support general-purpose multithreaded programs~\cite{Bergan:2010:CCR:1736020.1736029}. 
@@ -37,7 +37,7 @@ be accessed in the serial phases guided by a global token.
 CoreDet guarantees deterministic execution for racy programs without memory errors,
 but with very high performance overhead: 
 averagely $3.5\times$ slower than those using \pthreads{}.
-In order to guarantee determinsim, 
+In order to guarantee determinism, 
 CoreDet has to serialize \emph{all} external library calls without instrumentation.
 CoreDet does not provide deterministic 
 memory allocations, which can not guarantee determinism for programs with memory errors.  
@@ -61,8 +61,7 @@ threads APIs and can not work on legacy programs.
 
 Some other works can only support limited determinism or need user annotation.
 Kendo can only guarantee the determinism for race-free programs~\cite{1508256}. 
-TERN~\cite{stable-deterministic} provides a best-effort system to 
-apply memoized schedules for future runs with similar inputs. 
+TERN~\cite{stable-deterministic} provides a best-effort system to apply memoized schedules for future runs with similar inputs. 
 It can not guarantee the determinism for racy programs, as Kendo. 
 Peregrine~\cite{peregrine:sosp11} is a system based on TERN, which tries to record the order of memory accesses for racy portions and apply those schedules for future runs possibly.
 However, both TERN and Peregrine do not support complete determinism (using a best effort) and requires program annotations. 
