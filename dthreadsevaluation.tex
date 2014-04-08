@@ -69,7 +69,7 @@ performance than \texttt{pthreads}. Because \dthreads{} isolates updates in sepa
 \dthreads{} runs substantially slower than \pthreads{} for 4 of the 14 benchmarks examined here. The \texttt{ferret} benchmark relies on an external library to analyze image files during the first stage in its pipelined execution model; this library makes intensive (and in the case of \dthreads{}, unnecessary) use of locks. Lock acquisitions and deacquisitions in \dthreads{} imposes higher overhead than ordinary \pthreads{} mutex operations. More importantly in this case, the intensive use of locks in one stage forces \dthreads{} to effectively serialize the other stages in the pipeline, which must repeatedly wait on these locks to enforce a deterministic lock acquisition order. The other three benchmarks (\texttt{canneal}, \texttt{dedup}, and \texttt{reverse\_index}) modify a large number of pages. With \dthreads{}, each page modification triggers a segmentation violation, a system call to change memory protection, the creation of a private copy of the page, and a subsequent copy into the shared space during commit phases. We note that CoreDet also substantially degrades performance for \texttt{dedup} and \texttt{reverse\_index}), so much of this slowdown may be inherent to any deterministic runtime system.
 
 \subsection{Scalability}
-\input{dthreads/scalability}
+\input{dthreadsscalability}
 
 
 \subsection{Performance Analysis}
