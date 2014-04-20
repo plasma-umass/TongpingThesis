@@ -16,9 +16,9 @@ This section answers the following questions:
  
 \end{itemize}
 
-\paragraph{Experimental Platform.} All evaluations are performed on a quiescent Intel Core 2 dual-processor system,  equipped with 16GB RAM in total. Each processor is a 4-core 64-bit Intel Xeon running at 2.33 GHz, with a 4MB shared L2 cache and 32KB private L1 cache. The underlying operating system is an unmodified CentOS 5.5, running with Linux kernel version 2.6.18-194.17.1.el5. The glibc version is 2.5. 
+\textbf{Experimental Platform.} All evaluations are performed on a quiescent Intel Core 2 dual-processor system,  equipped with 16GB RAM in total. Each processor is a 4-core 64-bit Intel Xeon running at 2.33 GHz, with a 4MB shared L2 cache and 32KB private L1 cache. The underlying operating system is an unmodified CentOS 5.5, running with Linux kernel version 2.6.18-194.17.1.el5. The glibc version is 2.5. 
 
-\paragraph{Evaluated Applications.}
+\textbf{Evaluated Applications.}
 This paper evaluates two popular benchmark suites,
 Phoenix (with large input) ~\cite{phoenix-hpca} and PARSEC (with simlarge input) ~\cite{parsec}. Even with unmodified LLVM-3.2, Facesim cannot be compiled successfully (having complaints on an undefined template) and Canneal aborts unexpectedly. Thus, these two benchmarks are excluded.
 We also evaluate \Predator{} on six real applications, including MySQL, Boost, Memcached, aget, pbzip2 and pfscan.
@@ -77,9 +77,7 @@ It is worth noting that linear\_regression has a potential false sharing problem
 However, it does occur in the original execution environment, with the default memory allocator and using gcc compiler. That is why fixing it improves the performance by more than $12\times$.  This also exemplifies the necessity of \Predator{} predictive detection: existing tools may miss a false sharing problem if it does not occur at their test environments. 
  
 \subsubsection{Real Applications}
-To verify \Predator{}'s practicality, we further evaluate several widely-used real applications, whereas no previous work has done this. These real applications include a server application (MySQL~\cite{mysql}),
-a standard C++ library (Boost~\cite{libfalsesharing}),
-a distributed memory object caching system (Memcached), a network retriever (aget),
+To verify \Predator{}'s practicality, we further evaluate several widely-used real applications, whereas no previous work has done this. These real applications include a standard C++ library (Boost~\cite{libfalsesharing}), a server application (MySQL~\cite{mysql}), a distributed memory object caching system (Memcached), a network retriever (aget),
 a parallel bzip2 file compressor (pbzip2), and a parallel file scanner (pfscan).
 
 MySQL-5.5.32 and boost-1.49.0 are known to have false sharing problems. Other applications (memcached-1.4.15, aget-0.4.1,  pbzip2-1.1.6, and pfscan) do not have known false sharing problems.

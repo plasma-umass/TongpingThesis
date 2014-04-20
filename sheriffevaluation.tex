@@ -228,7 +228,8 @@ corresponding working version, and updates status words of specific cache lines.
 
 To measure \sheriffdetect{}'s sensitivity to different sampling rates, we evaluate on three different sampling rates: 2ms, 10ms (our baseline), and 50ms.
 
-\paragraph{Sampling Overhead:} Figure~\ref{fig:sensitivity} shows the performance overhead under different sampling rates, normalized to the runtime of using the default 10ms sample rate. For most of these benchmarks, sampling imposes relatively little overhead either because the average
+\subsubsection{Sampling Overhead} 
+Figure~\ref{fig:sensitivity} shows the performance overhead under different sampling rates, normalized to the runtime of using the default 10ms sample rate. For most of these benchmarks, sampling imposes relatively little overhead either because the average
 number of shared pages is small, or because the
 transaction length is often shorter than the sampling interval (thus no adding checking overhead).
 
@@ -267,7 +268,7 @@ sampling rate. The reason is that \texttt{canneal} dirties a large number of sha
 \label{table:samplingquality}}
 \end{table*}
 
-\paragraph{Sampling Effectiveness:}
+\subsubsection{Sampling Effectiveness:}
 The choice of sampling rates has relatively little impact on detection and ranking, shown in Table~\ref{table:samplingquality}. As expected, the number of falsely-shared objects reported and the number of interleaved writes observed are not significantly different.
 
 Using a different sampling rate does affect the number of falsely-shared objects detected, but \SheriffDetect{} already reports all instances with a significant performance impact under the default sampling rate. Increasing the sampling rate to 2ms (more frequent sampling) reveals two additional falsely-shared objects (in \texttt{ferret} and \texttt{streamcluster}), but these two objects do not have a significant performance impact since they can only cause few cache invalidations(under 10). Similarly, reducing the sampling rate to 50ms (less frequent sampling) cannot detect two false sharing problems (in \texttt{kmeans} and \texttt{word\_count}), but these objects also have little impact on performance.

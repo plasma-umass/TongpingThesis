@@ -104,15 +104,15 @@ Every time, when \SheriffDetect{} tracks a memory write, either at the end of ea
 
 \SheriffDetect{} employs the following optimizations in order to reduce its performance overhead. 
 
-\paragraph{Getting Callsite Information.}
+\subsubsection{Getting Callsite Information.}
 \label{sec:sheriffcallsite}
 
 \SheriffDetect{} intercepts memory allocation operations in order to collect callsites for every heap object. To reduce the performance overhead, \SheriffDetect{} does not use the \texttt{bracktrace()} function call, but identify the callsite by analyzing the return or frame address using GCC extensions. However, this can not work on applications without debugging information. 
 
-\paragraph{Reducing timer overhead.}
+\subsubsection{Reducing timer overhead.}
 As explained in Section~\ref{sec:memoryaccesses}, \SheriffDetect{} uses a sampling mechanism to track cache invalidations. To reduce the performance overhead caused by by handling those alarm signals, \SheriffDetect{} activates sampling only when the average transaction time is larger than a pre-defined threshold (currently 10 milliseconds). \SheriffDetect{} uses an exponential moving average to track the average transaction time ($\alpha = 0.9$). This optimization does not significantly reduce the possibility of finding false sharing, since \SheriffDetect{} can track those accumulative writes inside every short transaction by checking only at the end of transactions.
 
-\paragraph{Sampling to find shared pages.} 
+\subsubsection{Sampling to find shared pages.} 
 If an application has a large number of transactions or a large memory footprint, the overhead of handling page protection can dominate the total running time.
 To reduce the number of pages that should be tracked, \SheriffDetect{} leverages a
 simple insight: if two threads can falsely share (write-write share) a cache line, then they must simultaneously write to the same page containing this cache line. 
@@ -130,11 +130,11 @@ Unlike previous tools, \SheriffDetect{} reports no false positives, differentiat
 
 However, \SheriffDetect{} can under-report false sharing instances in the following situations:
 
-\paragraph{Single writer.}
+\subsubsection{Single writer.}
 False sharing usually involves concurrent updates from multiple threads. But it can also arise when there is exactly one thread writing to part of a cache line while other threads read from this cache line. 
 Because \sheriffdetect{} can only track writes, it cannot detect this single-writer false sharing, missing some false sharing problems. 
 
-\paragraph{Heap-induced false sharing.}  
+\subsubsection{Heap-induced false sharing.}  
 \sheriff{} replaces the standard memory allocator with one that, like the Hoard allocator, avoids most heap-induced false sharing. \sheriff{}'s memory allocator (like Hoard), carves memory into page-sized chunks; each thread allocates from its own set of chunks, and the allocator never splits cache lines across threads. Because \SheriffDetect{} uses a different custom memory allocator, it cannot detect false sharing that is caused by using the standard memory allocator. Since it is straightforward to deploy Hoard or a similar allocator to avoid heap-induced false sharing, this limitation is not a problem in practice.
 
-\paragraph{Misses due to sampling.}  Since it uses sampling to find shared pages, \SheriffDetect{} may fail to track those pages that written in the middle of sampling intervals. We hypothesize that false sharing instances that affect performance are unlikely to perform frequent writes exclusively during that time, and so are unlikely to be missed.
+\subsubsection{Misses due to sampling.}  Since it uses sampling to find shared pages, \SheriffDetect{} may fail to track those pages that written in the middle of sampling intervals. We hypothesize that false sharing instances that affect performance are unlikely to perform frequent writes exclusively during that time, and so are unlikely to be missed.

@@ -6,7 +6,7 @@ We perform our evaluation on an Intel Core 2 dual-processor CPU system, equippin
 
 We evaluate the performance and scalability of \dthreads{} (versus CoreDet and \pthreads{}) across the PARSEC~\cite{parsec} and Phoenix~\cite{phoenix-hpca} benchmark suites.  
 
-In order to compare performance directly against CoreDet, which relies on the LLVM infrastructure~\cite{LLVM:CGO04}, all benchmarks are compiled with the LLVM compiler at the ``-O3'' optimization level~\cite{LLVM:CGO04}. Since \dthreads{} does not currently support 64-bit binaries, all benchmarks are compiled for 32 bit environments (using the ``-m32'' compiler flag). Each benchmark is executed ten times on a quiescent machine. To reduce the effect of outliers, results with the worst and best performance for each benchmark are discarded,
+In order to compare performance directly against CoreDet, which relies on the LLVM infrastructure, all benchmarks are compiled with the LLVM compiler at the ``-O3'' optimization level~\cite{LLVM:CGO04}. Since \dthreads{} does not currently support 64-bit binaries, all benchmarks are compiled for 32 bit environments (using the ``-m32'' compiler flag). Each benchmark is executed ten times on a quiescent machine. To reduce the effect of outliers, results with the worst and best performance for each benchmark are discarded,
 so each result is the average of the remaining eight runs.
 
 \textbf{Tuning CoreDet:} 

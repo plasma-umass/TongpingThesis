@@ -21,9 +21,7 @@ Multithreaded programs use shared memory for communication, thus \dthreads{} mus
 \textbf{Deterministic Synchronization:}
 There is no deterministic guarantee on synchronizations under existing operating systems. Thus, \dthreads{} re-implements the full range of pthreads synchronization primitives and discusses  them in details in Section~\ref{sec:synchronization}. 
 
-\hspace{1em} \\
-\noindent
-\textbf{Fixing the data race example} \\
+\subsection{Fixing the data race example} 
 About the example program in Figure~\ref{fig:nondeterminism},  \dthreads{} effectively isolates the execution from each thread until it completes, and then orders updates from different threads by thread creation time using a deterministic last-writer-wins protocol.
 
 In the beginning of every execution, thread 1 and thread 2 have the same view of shared state, with a = 0 and b = 0. Since changes by one thread to the value of a or b are not visible to the other until this thread exits, both checks on two threads at line 2 will be true. So thread 1 sets the value of a to 1, and thread 2 sets the value of b to 1. These threads then commit their updates to the shared state and exit, with thread 1 always committing before thread 2. The main thread then should always print ``1, 1'' on every execution.
